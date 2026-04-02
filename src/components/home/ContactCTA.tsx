@@ -16,7 +16,7 @@ const ContactCTA = () => {
         }`}
       >
         <h2 className="text-3xl font-bold">Contato</h2>
-        <p className="text-muted-foreground max-w-md mx-auto">
+        <p className="text-muted-foreground max-w-md mx-auto pb-6">
           Precisa de um orçamento personalizado? Entre em contato com nossa equipe.
         </p>
         <Link href="/contato">

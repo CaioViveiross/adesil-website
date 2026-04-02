@@ -6,6 +6,7 @@ import { ShoppingCart, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useState } from "react";
+import Image from "next/image";
 
 const Header = () => {
   const { itemCount } = useCart();
@@ -21,8 +22,12 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b">
       <div className="container flex items-center justify-between h-16">
         <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <span className="text-primary">ADE</span>
-          <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded text-sm font-black">SIL</span>
+          <Image
+            src="/images/adesil_logo.svg"
+            alt="Adesil - Etiquetas e Ribbons"
+            width={80}
+            height={80}
+          />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -30,9 +35,8 @@ const Header = () => {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname === link.href ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${pathname === link.href ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               {link.label}
             </Link>

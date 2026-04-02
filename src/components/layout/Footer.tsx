@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Instagram, Facebook, Phone, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 const Footer = () => {
   return (
@@ -11,8 +12,12 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <span className="text-background">ADE</span>
-              <span className="bg-primary text-primary-foreground px-1.5 py-0.5 rounded text-sm font-black">SIL</span>
+              <Image
+                src="/images/adesil_logo.svg"
+                alt="Adesil - Etiquetas e Ribbons"
+                width={80}
+                height={80}
+              />
             </Link>
             <div className="space-y-2 text-sm text-background/60">
               <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> 11 4210-7059</p>

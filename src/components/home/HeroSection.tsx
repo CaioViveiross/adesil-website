@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import heroImg from "@/assets/product-labels-1.png";
 
 const HeroSection = () => {
   const { ref, isVisible } = useScrollReveal(0.1);
@@ -32,13 +31,6 @@ const HeroSection = () => {
                 Ver produtos <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </Link>
-          </div>
-          <div className={`hidden md:flex justify-center ${isVisible ? "animate-fade-in" : "opacity-0"}`} style={{ animationDelay: "200ms" }}>
-            <img
-              src={heroImg}
-              alt="Etiquetas adesivas de alta qualidade"
-              className="w-[400px] h-[400px] object-contain drop-shadow-2xl"
-            />
           </div>
         </div>
       </div>

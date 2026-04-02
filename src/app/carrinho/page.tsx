@@ -2,7 +2,6 @@
 
 import Layout from "@/components/layout/Layout";
 import { useCart } from "@/contexts/CartContext";
-import { getProductImage } from "@/lib/images";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Trash2, Minus, Plus, ShoppingBag } from "lucide-react";
@@ -19,7 +18,7 @@ export default function CartPage() {
         <div className="container py-20 text-center space-y-4">
           <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground/40" />
           <h1 className="text-2xl font-bold">Seu carrinho está vazio</h1>
-          <p className="text-muted-foreground">Adicione produtos para continuar.</p>
+          <p className="text-muted-foreground pb-6">Adicione produtos para continuar.</p>
           <Link href="/categoria/adesivas">
             <Button variant="hero">Ver Produtos</Button>
           </Link>
@@ -38,7 +37,7 @@ export default function CartPage() {
             {items.map((item) => (
               <div key={`${item.product.id}-${item.customization?.text}`} className="flex gap-4 p-4 rounded-2xl border bg-card">
                 <img
-                  src={getProductImage(item.product.image)}
+                  src={item.product.image}
                   alt={item.product.name}
                   className="w-24 h-24 rounded-xl object-cover"
                 />

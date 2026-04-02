@@ -12,6 +12,7 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [

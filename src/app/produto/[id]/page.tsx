@@ -4,10 +4,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Layout from "@/components/layout/Layout";
 import { products } from "@/data/mockData";
-import { getProductImage } from "@/lib/images";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
-import LabelCustomizer from "@/components/products/LabelCustomizer";
 import { useState } from "react";
 import { ShoppingCart, Minus, Plus, ChevronLeft } from "lucide-react";
 
@@ -43,7 +41,7 @@ export default function ProductPage() {
           {/* Image */}
           <div className="aspect-square rounded-2xl overflow-hidden bg-muted">
             <img
-              src={getProductImage(product.image)}
+              src={product.image}
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -95,11 +93,6 @@ export default function ProductPage() {
                 Adicionar ao carrinho
               </Button>
             </div>
-
-            {/* Customizer */}
-            {product.customizable && (
-              <LabelCustomizer onCustomize={setCustomization} />
-            )}
           </div>
         </div>
       </div>

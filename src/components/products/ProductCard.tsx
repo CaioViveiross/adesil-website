@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getProductImage } from "@/lib/images";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/data/mockData";
 
@@ -11,8 +10,12 @@ interface ProductCardProps {
   product: Product;
 }
 
+
+
 const ProductCard = ({ product }: ProductCardProps) => {
   const { addItem } = useCart();
+
+  console.log("ProductCard renderizado:", product.image);
 
   return (
     <div className="group relative bg-card rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
@@ -24,7 +27,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       <Link href={`/produto/${product.id}`}>
         <div className="aspect-square overflow-hidden bg-muted">
           <img
-            src={getProductImage(product.image)}
+            src={product.image}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

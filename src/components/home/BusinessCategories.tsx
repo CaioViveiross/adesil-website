@@ -1,5 +1,4 @@
 import { businessCategories } from "@/data/mockData";
-import { getCategoryImage } from "@/lib/images";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const BusinessCategories = () => {
@@ -21,7 +20,7 @@ const BusinessCategories = () => {
           >
             <div className="w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden shadow-md group-hover:shadow-xl transition-shadow duration-300">
               <img
-                src={getCategoryImage(cat.image)}
+                src={cat.image}
                 alt={cat.name}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
