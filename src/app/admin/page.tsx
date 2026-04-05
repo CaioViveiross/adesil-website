@@ -1,17 +1,100 @@
 'use client';
 
+import { useEffect, useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { mockOrders, mockClients, products } from "@/data/mockData";
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
-
-const stats = [
-  { label: "Receita", value: "R$ 24.890", icon: DollarSign, change: "+12%" },
-  { label: "Pedidos", value: "147", icon: ShoppingCart, change: "+8%" },
-  { label: "Produtos", value: String(products.length), icon: Package, change: "" },
-  { label: "Clientes", value: String(mockClients.length), icon: Users, change: "+5%" },
-];
+import { statusLabels } from "@/types/supabase";
+import type { Order, Product, Client } from "@/types/supabase";
 
 export default function AdminDashboard() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [ordersRes, productsRes, clientsRes] = await Promise.all([
+          fetch('/api/orders'),
+          fetch('/api/products'),
+          fetch('/api/clients')
+        ]);
+
+        const ordersData = ordersRes.ok ? await ordersRes.json() : [];
+        const productsData = productsRes.ok ? await productsRes.json() : [];
+        const clientsData = clientsRes.ok ? await clientsRes.json() : [];
+
+        setOrders(ordersData);
+        setProducts(productsData);
+        setClients(clientsData);
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calcular estatísticas
+  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+  const totalOrders = orders.length;
+  const totalProducts = products.length;
+  const totalClients = clients.length;
+
+  const stats = [
+    {
+      label: "Receita",
+      value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      icon: DollarSign,
+      change: ""
+    },
+    {
+      label: "Pedidos",
+      value: String(totalOrders),
+      icon: ShoppingCart,
+      change: ""
+    },
+    {
+      label: "Produtos",
+      value: String(totalProducts),
+      icon: Package,
+      change: ""
+    },
+    {
+      label: "Clientes",
+      value: String(totalClients),
+      icon: Users,
+      change: ""
+    },
+  ];
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <h1 className="text-2xl font-bold mb-8">Dashboard</h1>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl border p-5">
+              <div className="h-4 bg-muted animate-pulse rounded w-20 mb-3"></div>
+              <div className="h-8 bg-muted animate-pulse rounded w-16"></div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-card rounded-2xl border p-6">
+          <div className="h-6 bg-muted animate-pulse rounded w-40 mb-4"></div>
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-12 bg-muted animate-pulse rounded"></div>
+            ))}
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <h1 className="text-2xl font-bold mb-8">Dashboard</h1>
@@ -42,13 +125,19 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {mockOrders.slice(0, 5).map((order) => (
+              {orders.slice(0, 5).map((order) => (
                 <tr key={order.id} className="border-b last:border-0">
                   <td className="py-3 font-medium">{order.id}</td>
                   <td className="py-3">{order.customer}</td>
                   <td className="py-3">{new Date(order.date).toLocaleDateString("pt-BR")}</td>
-                  <td className="py-3"><span className="text-xs bg-secondary px-2 py-1 rounded-full">{order.status}</span></td>
-                  <td className="py-3 text-right tabular-nums font-medium">R$ {order.total.toFixed(2).replace(".", ",")}</td>
+                  <td className="py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${statusLabels[order.status].color}`}>
+                      {statusLabels[order.status].label}
+                    </span>
+                  </td>
+                  <td className="py-3 text-right tabular-nums font-medium">
+                    R$ {order.total.toFixed(2).replace(".", ",")}
+                  </td>
                 </tr>
               ))}
             </tbody>

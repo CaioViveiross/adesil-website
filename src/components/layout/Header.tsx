@@ -2,14 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, Menu, X, User } from "lucide-react";
+import { ShoppingCart, Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import Image from "next/image";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const { itemCount } = useCart();
+  const { user, signOut, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -17,6 +26,11 @@ const Header = () => {
     { label: "Produtos", href: "/categoria/adesivas" },
     { label: "Contato", href: "/contato" },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    setMobileOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b">
@@ -44,11 +58,43 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/auth">
-            <Button variant="ghost" size="icon" className="hidden md:flex">
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
+          {!loading && (
+            user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="hidden md:flex">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm font-medium">
+                    Olá, {user.name}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/meus-pedidos">Meus Pedidos</Link>
+                  </DropdownMenuItem>
+                  {user.role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">Painel Admin</Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/auth">
+                <Button variant="ghost" size="icon" className="hidden md:flex">
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
+            )
+          )}
+
           <Link href="/carrinho" className="relative">
             <Button variant="ghost" size="icon">
               <ShoppingCart className="h-5 w-5" />
@@ -83,9 +129,46 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
-            <Link href="/auth" className="text-sm font-medium py-2 hover:text-primary" onClick={() => setMobileOpen(false)}>
-              Entre ou Cadastre-se
-            </Link>
+
+            {!loading && (
+              user ? (
+                <div className="border-t pt-3 mt-2 space-y-2">
+                  <div className="text-sm font-medium px-2">
+                    Olá, {user.name}
+                  </div>
+                  <Link
+                    href="/meus-pedidos"
+                    className="block text-sm font-medium py-2 hover:text-primary"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Meus Pedidos
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link
+                      href="/admin"
+                      className="block text-sm font-medium py-2 hover:text-primary"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      Painel Admin
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full text-left text-sm font-medium py-2 hover:text-primary"
+                  >
+                    Sair
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/auth"
+                  className="text-sm font-medium py-2 hover:text-primary"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Entre ou Cadastre-se
+                </Link>
+              )
+            )}
           </nav>
         </div>
       )}

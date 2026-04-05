@@ -1,12 +1,13 @@
 'use client';
 
 import { useParams } from "next/navigation";
+import { useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import ProductCard from "@/components/products/ProductCard";
-import { products, categories } from "@/data/mockData";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
+import type { Product, Category } from "@/types/supabase";
 
 const sortOptions = [
   { id: "relevance", label: "Relevância" },
@@ -20,6 +21,33 @@ export default function CategoryPage() {
   const id = params.id as string;
   const [sort, setSort] = useState("relevance");
   const [showFilters, setShowFilters] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Buscar categorias
+        const categoriesResponse = await fetch('/api/categories');
+        const categoriesData = categoriesResponse.ok ? await categoriesResponse.json() : [];
+
+        // Buscar produtos (filtrados por categoria se necessário)
+        const productsUrl = id === "todos" ? '/api/products' : `/api/products?category=${id}`;
+        const productsResponse = await fetch(productsUrl);
+        const productsData = productsResponse.ok ? await productsResponse.json() : [];
+
+        setCategories(categoriesData);
+        setProducts(productsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
 
   const category = categories.find((c) => c.id === id);
   const filtered = id === "todos"
@@ -28,12 +56,30 @@ export default function CategoryPage() {
 
   const sorted = [...filtered].sort((a, b) => {
     switch (sort) {
-      case "price-asc": return a.price - b.price;
-      case "price-desc": return b.price - a.price;
-      case "name": return a.name.localeCompare(b.name);
+      case "price-asc": return (a.price || 0) - (b.price || 0);
+      case "price-desc": return (b.price || 0) - (a.price || 0);
+      case "name": return (a.name || "").localeCompare(b.name || "");
       default: return 0;
     }
   });
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container py-10">
+          <div className="mb-8">
+            <div className="h-8 bg-muted animate-pulse rounded w-64 mb-2"></div>
+            <div className="h-4 bg-muted animate-pulse rounded w-96"></div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-64 bg-muted animate-pulse rounded-xl"></div>
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

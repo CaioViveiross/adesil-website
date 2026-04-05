@@ -2,20 +2,63 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { products } from "@/data/mockData";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { ShoppingCart, Minus, Plus, ChevronLeft } from "lucide-react";
+import type { Product } from "@/types/supabase";
 
 export default function ProductPage() {
   const params = useParams();
   const id = params.id as string;
-  const product = products.find((p) => p.id === id);
   const { addItem } = useCart();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [customization, setCustomization] = useState<{ text: string; color: string; font: string } | undefined>();
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProduct(data);
+        } else {
+          setProduct(null);
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        setProduct(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container py-8">
+          <div className="h-4 bg-muted animate-pulse rounded w-32 mb-6"></div>
+          <div className="grid md:grid-cols-2 gap-10">
+            <div className="aspect-square bg-muted animate-pulse rounded-2xl"></div>
+            <div className="space-y-6">
+              <div className="h-6 bg-muted animate-pulse rounded w-48"></div>
+              <div className="h-4 bg-muted animate-pulse rounded w-64"></div>
+              <div className="h-8 bg-muted animate-pulse rounded w-32"></div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!product) {
     return (
@@ -41,7 +84,7 @@ export default function ProductPage() {
           {/* Image */}
           <div className="aspect-square rounded-2xl overflow-hidden bg-muted">
             <img
-              src={product.image}
+              src={product.image || "/placeholder.svg"}
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -58,9 +101,9 @@ export default function ProductPage() {
             <p className="text-muted-foreground">{product.description}</p>
 
             <div className="space-y-1">
-              {product.originalPrice && (
+              {product.original_price && (
                 <p className="text-sm text-muted-foreground line-through">
-                  R$ {product.originalPrice.toFixed(2).replace(".", ",")}
+                  R$ {product.original_price.toFixed(2).replace(".", ",")}
                 </p>
               )}
               <p className="text-3xl font-bold text-primary">

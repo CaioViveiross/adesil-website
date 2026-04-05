@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import type { Product } from "@/data/mockData";
+import type { Product } from "@/types/supabase";
 
 interface ProductCardProps {
   product: Product;
@@ -34,9 +34,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
       </Link>
       <div className="p-4 space-y-2">
-        {product.originalPrice && (
+        {product.original_price && (
           <span className="text-xs text-muted-foreground line-through">
-            R$ {product.originalPrice.toFixed(2).replace(".", ",")}
+            R$ {product.original_price.toFixed(2).replace(".", ",")}
           </span>
         )}
         <p className="text-lg font-bold">

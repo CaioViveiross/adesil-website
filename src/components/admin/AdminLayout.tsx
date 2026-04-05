@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Users, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Users, ArrowLeft, Tag, Palette, Settings } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Produtos", href: "/admin/produtos", icon: Package },
   { label: "Pedidos", href: "/admin/pedidos", icon: ShoppingCart },
   { label: "Clientes", href: "/admin/clientes", icon: Users },
+  { label: "Categorias", href: "/admin/categorias", icon: Tag },
+  { label: "Configurações", href: "/admin/configuracoes", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
