@@ -15,11 +15,7 @@ export async function GET(
       .select(`
         *,
         product_business_categories (
-          business_category_id,
-          business_categories (
-            id,
-            name
-          )
+          business_category_id
         )
       `)
       .eq("id", id)
@@ -77,6 +73,15 @@ export async function PUT(
     const body = await request.json();
     const { business_categories, ...productData } = body;
 
+    if (productData.category !== undefined && productData.category !== null) {
+      const parsedCategory = parseInt(productData.category.toString(), 10);
+      if (!Number.isNaN(parsedCategory)) {
+        productData.category = parsedCategory;
+      } else {
+        delete productData.category;
+      }
+    }
+
     // Atualizar o produto
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -118,11 +123,7 @@ export async function PUT(
       .select(`
         *,
         product_business_categories (
-          business_category_id,
-          business_categories (
-            id,
-            name
-          )
+          business_category_id
         )
       `)
       .eq("id", id)

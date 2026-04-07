@@ -29,10 +29,10 @@ export default function AdminProductsPage() {
     price: "",
     original_price: "",
     image: "",
-    category: "",
+    category: "" as string | number,
     badge: "",
     specs: "",
-    business_categories: [] as string[],
+    business_categories: [] as number[],
   });
 
   useEffect(() => {
@@ -61,10 +61,11 @@ export default function AdminProductsPage() {
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter(product => {
+    const categoryName = categories.find(c => c.id === product.category)?.name || '';
+    return product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +74,7 @@ export default function AdminProductsPage() {
       ...formData,
       price: parseFloat(formData.price),
       original_price: formData.original_price ? parseFloat(formData.original_price) : undefined,
+      category: formData.category ? parseInt(formData.category.toString()) : undefined,
     };
 
     try {
@@ -116,7 +118,7 @@ export default function AdminProductsPage() {
       price: product.price.toString(),
       original_price: product.original_price?.toString() || "",
       image: product.image || "",
-      category: product.category || "",
+      category: product.category?.toString() || "",
       badge: product.badge || "",
       specs: product.specs || "",
       business_categories: product.business_categories || [],
@@ -135,7 +137,7 @@ export default function AdminProductsPage() {
       category: "",
       badge: "",
       specs: "",
-      business_categories: [],
+      business_categories: [] as number[],
     });
   };
 
@@ -177,13 +179,13 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <Select value={formData.category.toString()} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
+                        <SelectItem key={cat.id} value={cat.id.toString()}>
                           {cat.name}
                         </SelectItem>
                       ))}

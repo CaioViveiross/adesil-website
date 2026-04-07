@@ -37,7 +37,7 @@ export async function getProductById(id: string) {
   return data;
 }
 
-export async function getProductsByCategory(categoryId: string) {
+export async function getProductsByCategory(categoryId: number) {
   const { data, error } = await supabase
     .from("products")
     .select(`

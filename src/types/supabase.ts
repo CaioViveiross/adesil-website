@@ -4,14 +4,14 @@ export type UserRole = 'admin' | 'customer';
 
 // Categories
 export interface Category {
-  id: string;
+  id: number;
   name: string;
   image?: string;
   description?: string;
 }
 
 export interface BusinessCategory {
-  id: string;
+  id: number;
   name: string;
   image?: string;
 }
@@ -24,10 +24,10 @@ export interface Product {
   price: number;
   original_price?: number;
   image?: string;
-  category?: string;
+  category?: number;
   badge?: string;
   specs?: string;
-  business_categories?: string[]; // Array de IDs de categorias de negócio
+  business_categories?: number[]; // Array de IDs de categorias de negócio
   created_at?: string;
 }
 

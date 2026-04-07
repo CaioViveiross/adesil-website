@@ -8,34 +8,38 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
-    const category = searchParams.get("category");
-    const businessCategory = searchParams.get("business_category");
+    const categoryParam = searchParams.get("category");
+    const businessCategoryParam = searchParams.get("business_category");
+    const categoryId = categoryParam ? parseInt(categoryParam, 10) : undefined;
+    const businessCategoryId = businessCategoryParam ? parseInt(businessCategoryParam, 10) : undefined;
 
     let query = supabase
       .from("products")
       .select(`
         *,
         product_business_categories (
-          business_category_id,
-          business_categories (
-            id,
-            name
-          )
+          business_category_id
         )
       `)
       .order("created_at", { ascending: false });
 
-    if (category) {
-      query = query.eq("category", category);
+    if (categoryParam) {
+      if (Number.isNaN(categoryId)) {
+        return NextResponse.json([], { status: 200 });
+      }
+      query = query.eq("category", categoryId);
     }
 
     // Se filtrar por categoria de negócio, precisamos de uma abordagem diferente
-    if (businessCategory) {
+    if (businessCategoryParam) {
+      if (Number.isNaN(businessCategoryId)) {
+        return NextResponse.json([], { status: 200 });
+      }
       // Buscar produtos que têm a categoria de negócio específica
       const { data: productIds, error: relationError } = await supabase
         .from("product_business_categories")
         .select("product_id")
-        .eq("business_category_id", businessCategory);
+        .eq("business_category_id", businessCategoryId);
 
       if (relationError) throw relationError;
 
@@ -98,6 +102,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { business_categories, ...productData } = body;
 
+    if (productData.category !== undefined && productData.category !== null) {
+      const parsedCategory = parseInt(productData.category.toString(), 10);
+      if (!Number.isNaN(parsedCategory)) {
+        productData.category = parsedCategory;
+      } else {
+        delete productData.category;
+      }
+    }
+
     // Criar o produto primeiro
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -130,11 +143,7 @@ export async function POST(request: NextRequest) {
       .select(`
         *,
         product_business_categories (
-          business_category_id,
-          business_categories (
-            id,
-            name
-          )
+          business_category_id
         )
       `)
       .eq("id", product.id)

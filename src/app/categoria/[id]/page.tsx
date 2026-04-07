@@ -19,6 +19,7 @@ const sortOptions = [
 export default function CategoryPage() {
   const params = useParams();
   const id = params.id as string;
+  const categoryId = id === "todos" ? undefined : Number(id);
   const [sort, setSort] = useState("relevance");
   const [showFilters, setShowFilters] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,7 +34,9 @@ export default function CategoryPage() {
         const categoriesData = categoriesResponse.ok ? await categoriesResponse.json() : [];
 
         // Buscar produtos (filtrados por categoria se necessário)
-        const productsUrl = id === "todos" ? '/api/products' : `/api/products?category=${id}`;
+        const productsUrl = id === "todos" || categoryId === undefined || Number.isNaN(categoryId)
+          ? '/api/products'
+          : `/api/products?category=${categoryId}`;
         const productsResponse = await fetch(productsUrl);
         const productsData = productsResponse.ok ? await productsResponse.json() : [];
 
@@ -49,10 +52,10 @@ export default function CategoryPage() {
     fetchData();
   }, [id]);
 
-  const category = categories.find((c) => c.id === id);
+  const category = categories.find((c) => c.id === categoryId);
   const filtered = id === "todos"
     ? products
-    : products.filter((p) => p.category === id);
+    : products.filter((p) => p.category === categoryId);
 
   const sorted = [...filtered].sort((a, b) => {
     switch (sort) {
