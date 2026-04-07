@@ -3,10 +3,10 @@ import type { BusinessCategory } from "@/types/supabase";
 
 // Categorias de negócio fixas
 const businessCategoriesData: BusinessCategory[] = [
-  { id: "logistica", name: "Logística", image: "/images/category-logistica.jpg" },
-  { id: "comercio", name: "Comércio", image: "/images/category-comercio.jpg" },
-  { id: "hospitalar", name: "Hospitalar", image: "/images/category-hospitalar.jpg" },
-  { id: "industria", name: "Indústria", image: "/images/category-industria.jpg" },
+  { id: 1, name: "Logística", image: "/images/category-logistica.png" },
+  { id: 2, name: "Comércio", image: "/images/category-comercio.png" },
+  { id: 3, name: "Hospitalar", image: "/images/category-hospitalar.png" },
+  { id: 4, name: "Indústria", image: "/images/category-industria.png" },
 ];
 
 // GET /api/business-categories - Listar categorias de negócio (dados fixos)

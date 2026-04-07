@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import type { Product, Category, BusinessCategory } from "@/types/supabase";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,6 +22,7 @@ export default function AdminProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -30,8 +32,7 @@ export default function AdminProductsPage() {
     original_price: "",
     image: "",
     category: "" as string | number,
-    badge: "",
-    specs: "",
+    tags: "",
     business_categories: [] as number[],
   });
 
@@ -61,6 +62,52 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        throw new Error('Usuário não autenticado. Faça login para fazer upload.');
+      }
+
+      console.log('Usuário autenticado:', user.id);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      console.log('Fazendo upload para:', filePath);
+
+      const { data, error } = await supabase.storage
+        .from('Adesil Bucket')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Erro do Supabase Storage:', error);
+        throw error;
+      }
+
+      console.log('Upload realizado com sucesso:', data);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('Adesil Bucket')
+        .getPublicUrl(filePath);
+
+      console.log('URL pública gerada:', publicUrl);
+
+      setFormData(prev => ({ ...prev, image: publicUrl }));
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert(`Erro ao fazer upload da imagem: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const filteredProducts = products.filter(product => {
     const categoryName = categories.find(c => c.id === product.category)?.name || '';
     return product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,6 +122,7 @@ export default function AdminProductsPage() {
       price: parseFloat(formData.price),
       original_price: formData.original_price ? parseFloat(formData.original_price) : undefined,
       category: formData.category ? parseInt(formData.category.toString()) : undefined,
+      business_categories: formData.business_categories.map(id => typeof id === 'string' ? parseInt(id) : id),
     };
 
     try {
@@ -119,8 +167,7 @@ export default function AdminProductsPage() {
       original_price: product.original_price?.toString() || "",
       image: product.image || "",
       category: product.category?.toString() || "",
-      badge: product.badge || "",
-      specs: product.specs || "",
+      tags: product.tags || "",
       business_categories: product.business_categories || [],
     });
     setIsDialogOpen(true);
@@ -135,8 +182,7 @@ export default function AdminProductsPage() {
       original_price: "",
       image: "",
       category: "",
-      badge: "",
-      specs: "",
+      tags: "",
       business_categories: [] as number[],
     });
   };
@@ -155,13 +201,14 @@ export default function AdminProductsPage() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">Gerenciar Produtos</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Produto
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Produto
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingProduct ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
@@ -230,31 +277,38 @@ export default function AdminProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="image">Imagem URL</Label>
-                  <Input
-                    id="image"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  />
+                  <Label htmlFor="image">Imagem do Produto</Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      disabled={uploading}
+                    />
+                    {uploading && <p className="text-sm text-muted-foreground">Fazendo upload...</p>}
+                    {formData.image && (
+                      <div className="mt-2">
+                        <img
+                          src={formData.image}
+                          alt="Preview"
+                          className="w-20 h-20 object-cover rounded border"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="badge">Badge</Label>
+                  <Label htmlFor="tags">Tags</Label>
                   <Input
-                    id="badge"
-                    value={formData.badge}
-                    onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
+                    id="tags"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="specs">Especificações</Label>
-                <Textarea
-                  id="specs"
-                  value={formData.specs}
-                  onChange={(e) => setFormData({ ...formData, specs: e.target.value })}
-                  rows={2}
-                />
               </div>
 
               <div>
@@ -296,6 +350,7 @@ export default function AdminProductsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="bg-card rounded-2xl border p-6">
@@ -319,7 +374,7 @@ export default function AdminProductsPage() {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Negócios</TableHead>
                 <TableHead>Preço</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -349,7 +404,7 @@ export default function AdminProductsPage() {
                   <TableCell>R$ {product.price.toFixed(2).replace(".", ",")}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {product.badge && <Badge variant="secondary">{product.badge}</Badge>}
+                      {product.tags && <Badge variant="secondary">{product.tags}</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>

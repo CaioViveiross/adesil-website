@@ -25,8 +25,7 @@ export interface Product {
   original_price?: number;
   image?: string;
   category?: number;
-  badge?: string;
-  specs?: string;
+  tags?: string;
   business_categories?: number[]; // Array de IDs de categorias de negócio
   created_at?: string;
 }
@@ -72,23 +71,10 @@ export interface Profile {
   updated_at?: string;
 }
 
-// Label customization
-export interface LabelFont {
-  id: string;
-  name: string;
-  fontFamily: string;
-}
-
-export interface LabelColor {
-  id: string;
-  name: string;
-  hex: string;
-}
-
 // Status labels for UI
 export const statusLabels: Record<OrderStatus, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-800" },
-  processing: { label: "Processando", color: "bg-blue-100 text-blue-800" },
+  processing: { label: "Processando", color: "bg-sky-100 text-primary" },
   shipped: { label: "Enviado", color: "bg-purple-100 text-purple-800" },
   delivered: { label: "Entregue", color: "bg-green-100 text-green-800" },
 };

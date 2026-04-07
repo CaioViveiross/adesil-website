@@ -176,7 +176,7 @@ export default function AdminSettingsPage() {
               <div className="text-sm text-muted-foreground">Administradores</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary">
                 {profiles.filter(p => p.role === 'customer').length}
               </div>
               <div className="text-sm text-muted-foreground">Clientes</div>

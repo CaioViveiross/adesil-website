@@ -92,9 +92,9 @@ export default function ProductPage() {
 
           {/* Details */}
           <div className="space-y-6">
-            {product.badge && (
+            {product.tags && (
               <span className="inline-block bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
-                {product.badge}
+                {product.tags}
               </span>
             )}
             <h1 className="text-3xl font-bold">{product.name}</h1>

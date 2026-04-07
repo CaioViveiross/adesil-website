@@ -21,9 +21,6 @@ const FeaturedProducts = () => {
         }
       } catch (error) {
         console.error('Error fetching products:', error);
-        // Fallback para mockData se a API falhar
-        const { products: mockProducts } = await import("@/data/mockData");
-        setProducts(mockProducts.slice(0, 4));
       } finally {
         setLoading(false);
       }
@@ -52,7 +49,7 @@ const FeaturedProducts = () => {
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 items-stretch">
         {products.map((product, i) => (
           <div
             key={product.id}

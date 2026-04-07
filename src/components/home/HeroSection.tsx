@@ -10,8 +10,8 @@ const HeroSection = () => {
 
   return (
     <section ref={ref} className="relative overflow-hidden">
-      <div className="absolute inset-0 bg-[#001489] rounded-b-[2rem] md:rounded-b-[3rem]" />
-      <div className="container relative z-10 py-16 md:py-24">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#001489] via-[#002499] to-[#000d66] animate-gradient rounded-b-[2rem] md:rounded-b-[3rem]" />
+      <div className="container relative z-10 py-20 md:py-28">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className={`space-y-6 ${isVisible ? "animate-fade-in" : "opacity-0"}`}>
             <p className="text-primary-foreground/70 text-sm font-medium">

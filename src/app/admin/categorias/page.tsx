@@ -21,7 +21,6 @@ export default function AdminCategoriesPage() {
   const [formData, setFormData] = useState({
     id: "",
     name: "",
-    image: "",
     description: "",
   });
 
@@ -83,7 +82,6 @@ export default function AdminCategoriesPage() {
     setFormData({
       id: category.id,
       name: category.name,
-      image: category.image || "",
       description: category.description || "",
     });
     setIsDialogOpen(true);
@@ -94,7 +92,6 @@ export default function AdminCategoriesPage() {
     setFormData({
       id: "",
       name: "",
-      image: "",
       description: "",
     });
   };
@@ -149,15 +146,6 @@ export default function AdminCategoriesPage() {
               </div>
 
               <div>
-                <Label htmlFor="image">Imagem URL</Label>
-                <Input
-                  id="image"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
                   id="description"
@@ -187,7 +175,6 @@ export default function AdminCategoriesPage() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Nome</TableHead>
-                <TableHead>Imagem</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
               </TableRow>
@@ -197,17 +184,6 @@ export default function AdminCategoriesPage() {
                 <TableRow key={category.id}>
                   <TableCell className="font-mono text-sm">{category.id}</TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>
-                    {category.image ? (
-                      <img
-                        src={category.image}
-                        alt={category.name}
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground">Sem imagem</span>
-                    )}
-                  </TableCell>
                   <TableCell className="max-w-xs truncate">
                     {category.description || ''}
                   </TableCell>
