@@ -8,7 +8,6 @@ const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Produtos", href: "/admin/produtos", icon: Package },
   { label: "Pedidos", href: "/admin/pedidos", icon: ShoppingCart },
-  { label: "Clientes", href: "/admin/clientes", icon: Users },
   { label: "Categorias", href: "/admin/categorias", icon: Tag },
   { label: "Configurações", href: "/admin/configuracoes", icon: Settings },
 ];

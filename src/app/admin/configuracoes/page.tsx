@@ -170,7 +170,7 @@ export default function AdminSettingsPage() {
               <div className="text-sm text-muted-foreground">Total de Usuários</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-primary">
                 {profiles.filter(p => p.role === 'admin').length}
               </div>
               <div className="text-sm text-muted-foreground">Administradores</div>
@@ -182,7 +182,7 @@ export default function AdminSettingsPage() {
               <div className="text-sm text-muted-foreground">Clientes</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-primary">
                 {new Date().toLocaleDateString("pt-BR")}
               </div>
               <div className="text-sm text-muted-foreground">Data Atual</div>

@@ -4,9 +4,8 @@ export type UserRole = 'admin' | 'customer';
 
 // Categories
 export interface Category {
-  id: number;
+  id?: number;
   name: string;
-  image?: string;
   description?: string;
 }
 
@@ -57,6 +56,24 @@ export interface Order {
   total: number;
   items: number;
   customer: string;
+  customer_id?: string;
+  customer_email?: string;
+  document?: string;
+  billing_name?: string;
+  shipping_zipcode?: string;
+  shipping_street?: string;
+  shipping_number?: string;
+  shipping_complement?: string;
+  shipping_city?: string;
+  shipping_state?: string;
+  shipping_country?: string;
+  shipping_cost?: number;
+  items_detail?: Array<{
+    product_id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
   created_at?: string;
 }
 
@@ -67,6 +84,15 @@ export interface Profile {
   email: string;
   role: UserRole;
   avatar_url?: string;
+  document?: string;
+  company_name?: string;
+  shipping_zipcode?: string;
+  shipping_street?: string;
+  shipping_number?: string;
+  shipping_complement?: string;
+  shipping_city?: string;
+  shipping_state?: string;
+  shipping_country?: string;
   created_at?: string;
   updated_at?: string;
 }

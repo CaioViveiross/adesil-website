@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClients, createClient } from "@/lib/supabase/orders";
+import { getClients, createClientRecord } from "@/lib/supabase/orders";
 
 // GET /api/clients - Listar clientes
 export async function GET(request: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const client = await createClient(body);
+    const client = await createClientRecord(body);
 
     return NextResponse.json(client, { status: 201 });
   } catch (error) {

@@ -19,7 +19,7 @@ export default function CartPage() {
           <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground/40" />
           <h1 className="text-2xl font-bold">Seu carrinho está vazio</h1>
           <p className="text-muted-foreground pb-6">Adicione produtos para continuar.</p>
-          <Link href="/categoria/adesivas">
+          <Link href="/categoria/todos">
             <Button variant="hero">Ver Produtos</Button>
           </Link>
         </div>

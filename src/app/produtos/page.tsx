@@ -7,13 +7,13 @@ type Product = {
   price: number;
   image?: string;
   category?: string;
-  badge?: string;
+  tags?: string;
 };
 
 export default async function ProdutosPage() {
   const { data, error } = await supabase
     .from("products")
-    .select("id, name, description, price, image, category, badge")
+    .select("id, name, description, price, image, category, tags")
     .order("name", { ascending: true })
     .limit(20);
 

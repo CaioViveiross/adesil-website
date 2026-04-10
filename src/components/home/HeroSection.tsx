@@ -27,7 +27,7 @@ const HeroSection = () => {
               Encontre aqui os melhores produtos em etiquetas adesivas e Ribbons.
             </p>
             <Link href="/categoria/adesivas">
-              <Button variant="outline" className="bg-background text-foreground hover:bg-background/90 border-0 mt-2">
+              <Button variant="outline" className="bg-background text-foreground hover:bg-background/90 border-0 mt-6">
                 Ver produtos <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </Link>

@@ -65,7 +65,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/10 mt-12 pt-8 text-center text-xs text-background/40">
-          © 2024 Adesil. Todos os direitos reservados.
+          Desenvolvido por @CaioViveiros
         </div>
       </div>
     </footer>

@@ -1,9 +1,14 @@
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabaseServer";
 import type { Order, Client, OrderStatus } from "@/types/supabase";
+
+async function getSupabase() {
+  return await createClient();
+}
 
 // ==================== ORDERS ====================
 
-export async function getOrders(limit = 50, offset = 0, status?: OrderStatus) {
+export async function getOrders(limit = 50, offset = 0, status?: OrderStatus, customerId?: string) {
+  const supabase = await getSupabase();
   let query = supabase
     .from("orders")
     .select("*")
@@ -14,6 +19,10 @@ export async function getOrders(limit = 50, offset = 0, status?: OrderStatus) {
     query = query.eq("status", status);
   }
 
+  if (customerId) {
+    query = query.eq("customer_id", customerId);
+  }
+
   const { data, error } = await query;
 
   if (error) throw error;
@@ -21,6 +30,7 @@ export async function getOrders(limit = 50, offset = 0, status?: OrderStatus) {
 }
 
 export async function getOrderById(id: string) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("orders")
     .select("*")
@@ -32,6 +42,7 @@ export async function getOrderById(id: string) {
 }
 
 export async function getOrdersByCustomer(customerName: string) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("orders")
     .select("*")
@@ -43,9 +54,15 @@ export async function getOrdersByCustomer(customerName: string) {
 }
 
 export async function createOrder(order: Omit<Order, "id" | "created_at">) {
+  const supabase = await getSupabase();
+  const orderPayload = {
+    ...order,
+    date: order.date || new Date().toISOString(),
+  };
+
   const { data, error } = await supabase
     .from("orders")
-    .insert(order)
+    .insert(orderPayload)
     .select()
     .single();
 
@@ -54,6 +71,7 @@ export async function createOrder(order: Omit<Order, "id" | "created_at">) {
 }
 
 export async function updateOrder(id: string, updates: Partial<Order>) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("orders")
     .update(updates)
@@ -66,6 +84,7 @@ export async function updateOrder(id: string, updates: Partial<Order>) {
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("orders")
     .update({ status })
@@ -78,6 +97,7 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
 }
 
 export async function deleteOrder(id: string) {
+  const supabase = await getSupabase();
   const { error } = await supabase
     .from("orders")
     .delete()
@@ -90,6 +110,7 @@ export async function deleteOrder(id: string) {
 // ==================== CLIENTS ====================
 
 export async function getClients(limit = 50, offset = 0) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -101,6 +122,7 @@ export async function getClients(limit = 50, offset = 0) {
 }
 
 export async function getClientById(id: string) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -112,6 +134,7 @@ export async function getClientById(id: string) {
 }
 
 export async function getClientByEmail(email: string) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -122,7 +145,8 @@ export async function getClientByEmail(email: string) {
   return data;
 }
 
-export async function createClient(client: Omit<Client, "id" | "created_at">) {
+export async function createClientRecord(client: Omit<Client, "id" | "created_at">) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("clients")
     .insert(client)
@@ -134,6 +158,7 @@ export async function createClient(client: Omit<Client, "id" | "created_at">) {
 }
 
 export async function updateClient(id: string, updates: Partial<Client>) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("clients")
     .update(updates)

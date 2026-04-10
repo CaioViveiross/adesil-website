@@ -104,10 +104,17 @@ export default function CategoryPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">Categorias:</span>
+            <Button
+              variant={id === "todos" ? "default" : "outline"}
+              size="sm"
+              asChild
+            >
+              <a href="/categoria/todos">Todos</a>
+            </Button>
             {categories.map((cat) => (
               <Button
                 key={cat.id}
-                variant={cat.id === id ? "default" : "outline"}
+                variant={String(cat.id) === id ? "default" : "outline"}
                 size="sm"
                 asChild
               >

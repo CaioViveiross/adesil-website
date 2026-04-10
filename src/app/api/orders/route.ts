@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrders, createOrder } from "@/lib/supabase/orders";
+import { createClient } from "@/lib/supabaseServer";
 import type { OrderStatus } from "@/types/supabase";
 
 // GET /api/orders - Listar pedidos
@@ -9,12 +10,23 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
     const statusParam = searchParams.get("status");
+    const mine = searchParams.get("mine") === "true";
 
     const status = statusParam && ['pending', 'processing', 'shipped', 'delivered'].includes(statusParam)
       ? statusParam as OrderStatus
       : undefined;
 
-    const orders = await getOrders(limit, offset, status);
+    let customerId: string | undefined;
+    if (mine) {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json({ error: "Usuário não autenticado" }, { status: 401 });
+      }
+      customerId = user.id;
+    }
+
+    const orders = await getOrders(limit, offset, status, customerId);
     return NextResponse.json(orders);
   } catch (error) {
     console.error("Error fetching orders:", error);

@@ -23,7 +23,7 @@ const Header = () => {
   const pathname = usePathname();
 
   const navLinks = [
-    { label: "Produtos", href: "/categoria/adesivas" },
+    { label: "Produtos", href: "/categoria/todos" },
     { label: "Contato", href: "/contato" },
   ];
 
@@ -73,6 +73,9 @@ const Header = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/meus-pedidos">Meus Pedidos</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/meu-endereco">Meu Endereço</Link>
                   </DropdownMenuItem>
                   {user.role === 'admin' && (
                     <DropdownMenuItem asChild>
@@ -142,6 +145,13 @@ const Header = () => {
                     onClick={() => setMobileOpen(false)}
                   >
                     Meus Pedidos
+                  </Link>
+                  <Link
+                    href="/meu-endereco"
+                    className="block text-sm font-medium py-2 hover:text-primary"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Meu Endereço
                   </Link>
                   {user.role === 'admin' && (
                     <Link

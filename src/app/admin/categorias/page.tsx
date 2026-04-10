@@ -19,7 +19,6 @@ export default function AdminCategoriesPage() {
 
   // Form state
   const [formData, setFormData] = useState({
-    id: "",
     name: "",
     description: "",
   });
@@ -80,7 +79,6 @@ export default function AdminCategoriesPage() {
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setFormData({
-      id: category.id,
       name: category.name,
       description: category.description || "",
     });
@@ -90,7 +88,6 @@ export default function AdminCategoriesPage() {
   const resetForm = () => {
     setEditingCategory(null);
     setFormData({
-      id: "",
       name: "",
       description: "",
     });
@@ -124,17 +121,6 @@ export default function AdminCategoriesPage() {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="id">ID *</Label>
-                <Input
-                  id="id"
-                  value={formData.id}
-                  onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                  required
-                  disabled={!!editingCategory}
-                />
-              </div>
-
               <div>
                 <Label htmlFor="name">Nome *</Label>
                 <Input
@@ -199,7 +185,7 @@ export default function AdminCategoriesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDelete(category.id)}
+                        onClick={() => handleDelete(category.id?.toString() || '')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

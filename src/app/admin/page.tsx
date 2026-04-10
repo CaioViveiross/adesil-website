@@ -2,32 +2,29 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
+import { DollarSign, Package, ShoppingCart } from "lucide-react";
+import { parseOrderDate } from "@/lib/utils";
 import { statusLabels } from "@/types/supabase";
-import type { Order, Product, Client } from "@/types/supabase";
+import type { Order, Product } from "@/types/supabase";
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ordersRes, productsRes, clientsRes] = await Promise.all([
+        const [ordersRes, productsRes] = await Promise.all([
           fetch('/api/orders'),
           fetch('/api/products'),
-          fetch('/api/clients')
         ]);
 
         const ordersData = ordersRes.ok ? await ordersRes.json() : [];
         const productsData = productsRes.ok ? await productsRes.json() : [];
-        const clientsData = clientsRes.ok ? await clientsRes.json() : [];
 
         setOrders(ordersData);
         setProducts(productsData);
-        setClients(clientsData);
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -42,7 +39,6 @@ export default function AdminDashboard() {
   const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
   const totalOrders = orders.length;
   const totalProducts = products.length;
-  const totalClients = clients.length;
 
   const stats = [
     {
@@ -61,12 +57,6 @@ export default function AdminDashboard() {
       label: "Produtos",
       value: String(totalProducts),
       icon: Package,
-      change: ""
-    },
-    {
-      label: "Clientes",
-      value: String(totalClients),
-      icon: Users,
       change: ""
     },
   ];
@@ -129,7 +119,7 @@ export default function AdminDashboard() {
                 <tr key={order.id} className="border-b last:border-0">
                   <td className="py-3 font-medium">{order.id}</td>
                   <td className="py-3">{order.customer}</td>
-                  <td className="py-3">{new Date(order.date).toLocaleDateString("pt-BR")}</td>
+                  <td className="py-3">{parseOrderDate(order.date, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td>
                   <td className="py-3">
                     <span className={`text-xs px-2 py-1 rounded-full ${statusLabels[order.status].color}`}>
                       {statusLabels[order.status].label}
