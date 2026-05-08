@@ -2,70 +2,137 @@
 
 import Link from "next/link";
 import { Instagram, Facebook, Phone, Mail, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 const Footer = () => {
   return (
-    <footer className="bg-foreground text-background/80 mt-24">
-      <div className="container py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-          <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+    <footer className="bg-foreground text-background/75">
+      <div className="container py-20 md:py-24">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+          {/* Brand */}
+          <div className="space-y-5">
+            <Link href="/" className="inline-flex">
               <Image
                 src="/images/adesil_logo.svg"
-                alt="Adesil - Etiquetas e Ribbons"
+                alt="Adesil Print"
                 width={80}
-                height={80}
+                height={40}
+                className="h-8 w-auto"
               />
             </Link>
-            <div className="space-y-2 text-sm text-background/60">
-              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> 11 4210-7059</p>
-              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> pcp@adesilprint.com.br</p>
-              <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Rua Senador Darcy Ribeiro 33, São Paulo - SP</p>
+            <p className="text-sm text-background/45 leading-relaxed max-w-[220px]">
+              Especialistas em etiquetas adesivas e ribbons. Qualidade profissional para o seu negócio.
+            </p>
+            <div className="space-y-2 text-sm text-background/45">
+              <a
+                href="tel:1142107059"
+                className="flex items-center gap-2 hover:text-background/75 transition-colors"
+              >
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                11 4210-7059
+              </a>
+              <a
+                href="mailto:pcp@adesilprint.com.br"
+                className="flex items-center gap-2 hover:text-background/75 transition-colors"
+              >
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                pcp@adesilprint.com.br
+              </a>
+              <p className="flex items-start gap-2">
+                <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                Rua Senador Darcy Ribeiro 33, São Paulo - SP
+              </p>
             </div>
-            <div className="flex items-center gap-3 pt-2">
-              <Button variant="outline" size="icon" className="border-background/20 text-background/60 hover:text-background hover:border-background/40 bg-transparent">
+            <div className="flex gap-2 pt-1">
+              <a
+                href="#"
+                className="w-9 h-9 rounded-lg border border-background/10 flex items-center justify-center hover:border-background/25 hover:text-background/90 transition-colors"
+                aria-label="Instagram"
+              >
                 <Instagram className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="border-background/20 text-background/60 hover:text-background hover:border-background/40 bg-transparent">
+              </a>
+              <a
+                href="#"
+                className="w-9 h-9 rounded-lg border border-background/10 flex items-center justify-center hover:border-background/25 hover:text-background/90 transition-colors"
+                aria-label="Facebook"
+              >
                 <Facebook className="h-4 w-4" />
-              </Button>
+              </a>
             </div>
           </div>
 
+          {/* Categorias */}
           <div>
-            <h4 className="font-semibold text-background mb-4">Categorias</h4>
-            <ul className="space-y-2 text-sm text-background/60">
-              <li><Link href="/categoria/adesivas" className="hover:text-background transition-colors">Etiquetas Adesivas</Link></li>
-              <li><Link href="/categoria/balanca" className="hover:text-background transition-colors">Etiquetas para Balança</Link></li>
-              <li><Link href="/categoria/ribbons" className="hover:text-background transition-colors">Ribbons</Link></li>
-              <li><Link href="/categoria/couche" className="hover:text-background transition-colors">Couchê</Link></li>
+            <h4 className="font-semibold text-background/90 text-sm mb-5">Categorias</h4>
+            <ul className="space-y-3 text-sm text-background/45">
+              <li>
+                <Link href="/categoria/adesivas" className="hover:text-background/75 transition-colors">
+                  Etiquetas Adesivas
+                </Link>
+              </li>
+              <li>
+                <Link href="/categoria/balanca" className="hover:text-background/75 transition-colors">
+                  Etiquetas para Balança
+                </Link>
+              </li>
+              <li>
+                <Link href="/categoria/ribbons" className="hover:text-background/75 transition-colors">
+                  Ribbons
+                </Link>
+              </li>
+              <li>
+                <Link href="/categoria/couche" className="hover:text-background/75 transition-colors">
+                  Couchê
+                </Link>
+              </li>
             </ul>
           </div>
 
+          {/* Institucional */}
           <div>
-            <h4 className="font-semibold text-background mb-4">Conheça a Adesil</h4>
-            <ul className="space-y-2 text-sm text-background/60">
-              <li><Link href="/" className="hover:text-background transition-colors">Sobre nós</Link></li>
-              <li><Link href="/" className="hover:text-background transition-colors">Nossa qualidade</Link></li>
-              <li><Link href="/contato" className="hover:text-background transition-colors">Contato</Link></li>
+            <h4 className="font-semibold text-background/90 text-sm mb-5">Institucional</h4>
+            <ul className="space-y-3 text-sm text-background/45">
+              <li>
+                <Link href="/" className="hover:text-background/75 transition-colors">
+                  Sobre nós
+                </Link>
+              </li>
+              <li>
+                <Link href="/" className="hover:text-background/75 transition-colors">
+                  Nossa qualidade
+                </Link>
+              </li>
+              <li>
+                <Link href="/contato" className="hover:text-background/75 transition-colors">
+                  Contato
+                </Link>
+              </li>
+              <li>
+                <Link href="/meus-pedidos" className="hover:text-background/75 transition-colors">
+                  Meus Pedidos
+                </Link>
+              </li>
             </ul>
           </div>
 
+          {/* Atendimento */}
           <div>
-            <h4 className="font-semibold text-background mb-4">Fale Conosco</h4>
-            <p className="text-sm text-background/60 mb-4">Tire suas dúvidas ou solicite um orçamento.</p>
-            <Link href="/contato">
-              <Button variant="outline" className="border-background/20 text-background hover:bg-background/10 bg-transparent">
-                Fale Conosco →
-              </Button>
+            <h4 className="font-semibold text-background/90 text-sm mb-5">Atendimento</h4>
+            <p className="text-sm text-background/45 mb-5 leading-relaxed">
+              Segunda a sexta, das 8h às 18h. Tire suas dúvidas ou solicite um orçamento.
+            </p>
+            <Link
+              href="/contato"
+              className="inline-flex items-center gap-2 text-sm font-medium text-background/80 border border-background/15 hover:border-background/30 hover:text-background/95 px-4 py-2 rounded-xl transition-colors"
+            >
+              Fale Conosco →
             </Link>
           </div>
         </div>
 
-        <div className="border-t border-background/10 mt-12 pt-8 text-center text-xs text-background/40">
-          Desenvolvido por @CaioViveiros
+        <div className="border-t border-background/8 pt-8 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-background/28">
+          <p>© {new Date().getFullYear()} Adesil Print. Todos os direitos reservados.</p>
+          <p>Desenvolvido por @CaioViveiros</p>
         </div>
       </div>
     </footer>

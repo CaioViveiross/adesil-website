@@ -5,85 +5,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev       # Start dev server
-npm run build     # Production build
-npm run lint      # ESLint
-npm test          # Run Jest tests
-npm run test:watch  # Jest in watch mode
+npm run dev       # Start development server
+npm run build     # Build for production
+npm run lint      # Run ESLint
+npm test          # Run tests
+npm run test:watch # Run tests in watch mode
 ```
 
-Run a single test file: `npx jest src/path/to/file.test.ts`
+## Architecture Overview
 
-## Environment Variables
+E-commerce platform for label/sticker customization, built for a Brazilian market. The core differentiator is an interactive product customization feature (text, color, font) with a real-time preview before adding to cart.
 
-Required in `.env.local`:
+**Stack**: Next.js 15 (App Router) · TypeScript · Tailwind CSS · Radix UI (shadcn/ui) · Supabase (PostgreSQL + Auth) · TanStack React Query · React Hook Form + Zod
+
+## Project Structure
+
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-ABACATEPAY_API_KEY=
-NEXT_PUBLIC_APP_URL=           # Used for payment redirect URLs
+src/
+├── app/
+│   ├── api/               # Next.js API routes (REST endpoints)
+│   ├── admin/             # Admin dashboard pages (UI in progress)
+│   └── [feature]/         # Customer-facing pages (carrinho, checkout, etc.)
+├── components/
+│   ├── ui/                # shadcn/ui components — do not modify directly
+│   ├── home/              # Home page sections
+│   └── admin/             # Admin-specific components
+├── contexts/              # AuthContext, CartContext (React Context API)
+├── hooks/                 # Custom hooks
+├── lib/
+│   ├── supabaseClient.ts  # Browser Supabase client
+│   ├── supabaseServer.ts  # Server-side Supabase client (for API routes)
+│   └── supabase/          # Service layer: products, orders, categories, profiles queries
+├── types/
+│   └── supabase.ts        # Domain model types (Product, Order, Profile, etc.)
+└── middleware.ts           # Supabase SSR session refresh on every request
 ```
 
-Optional:
-```
-ABACATEPAY_API_BASE_URL=       # Defaults to https://api.abacatepay.com/v1
-```
+Path alias: `@/*` maps to `./src/*`.
 
-## Architecture
+## Key Patterns
 
-**Adesil Print** is a Brazilian e-commerce for custom printed labels/adhesives. Stack: Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn/ui, Supabase (auth + PostgreSQL), AbacatePay (PIX payments).
+**Auth**: Supabase Auth (email/password). `middleware.ts` refreshes sessions on every request. Client-side state lives in `AuthContext`. API routes use the server-side Supabase client from `lib/supabaseServer.ts`.
 
-### Supabase clients — two separate files, must not be mixed
+**State management**: `AuthContext` and `CartContext` for local UI state; TanStack React Query for all server data (products, orders, etc.).
 
-- `src/lib/supabaseClient.ts` — browser client (`createBrowserClient`), for Client Components
-- `src/lib/supabaseServer.ts` — server client (`createServerClient` + cookies), for Route Handlers and Server Components
+**API layer**: RESTful routes under `src/app/api/`. Database queries are encapsulated in `src/lib/supabase/` service files — API routes call those, not Supabase directly.
 
-All database helper functions live in `src/lib/supabase/` and always use the **server** client. Do not call these helpers from Client Components — call the API routes instead.
+**Product customization**: Users customize labels (text, font, color) before adding to cart. Customization data is stored alongside `CartItem` in `CartContext` and sent to the `/api/label-customization` endpoint.
 
-### API layer
+**Coupon system**: Hardcoded in `CartContext` — `"ADESIL10"` (10% off) and `"FRETE"` (free shipping).
 
-All data fetching from the browser goes through Next.js Route Handlers in `src/app/api/`:
-- `auth/*` — sign in/up/out, profile
-- `products`, `products/[id]` — product CRUD
-- `orders`, `orders/[id]` — order CRUD
-- `categories`, `business-categories` — category reads
-- `clients`, `clients/[id]` — customer management
-- `checkout` — creates order + AbacatePay PIX billing
-- `contact-messages` — public contact form submission
-- `admin/contact-messages`, `admin/profiles/[id]` — admin-only endpoints
-- `payments/abacatepay/webhook` — payment webhook handler
+**Forms**: React Hook Form + Zod. All form schemas use Zod; validation errors are surfaced via `react-hook-form`.
 
-### Auth flow
+**Notifications**: Sonner for toasts (`import { toast } from "sonner"`).
 
-`AuthContext` (`src/contexts/AuthContext.tsx`) is the single source of truth for auth state in the browser. It hydrates by calling `/api/auth/profile` on mount and exposes `user` (a `Profile` object with `role: 'admin' | 'customer'`), `signIn`, `signUp`, `signOut`, `refreshProfile`.
+## Database (Supabase)
 
-Admin-only UI is gated by `user.role === 'admin'` checks in the Header and Admin pages. The middleware (`src/middleware.ts`) currently only refreshes sessions — it does not enforce route protection.
+Main tables: `products`, `categories`, `product_business_categories` (many-to-many), `orders`, `profiles` (extends auth with address/company/document), `clients`.
 
-### Cart
+Use `supabaseServer.ts` (server context) or `supabaseClient.ts` (browser) — never mix them in the wrong context.
 
-`CartContext` (`src/contexts/CartContext.tsx`) holds cart state in memory (not persisted). Cart supports optional `customization` per item `{ text, color, font }`. Coupon codes are hardcoded: `ADESIL10` (10% off), `FRETE` (R$15 off).
+## External Services
 
-### Checkout / Payment
+- **ViaCEP** (`lib/viaCep.ts`): Brazilian zipcode → address lookup.
+- **AbacatePay**: Payment processor. API key in `.env` as `ABACATEPAY_API_KEY`.
 
-`/api/checkout` route:
-1. Verifies auth via `getCurrentProfile()`
-2. Updates the user's profile with shipping/billing info
-3. Creates an order in Supabase (`pending` status)
-4. If `ABACATEPAY_API_KEY` is set, calls AbacatePay to generate a PIX billing; returns `payment_url`, `pix_qr_code`, `pix_copy_paste`
-5. If key is missing, returns `pending_configuration: true` — the UI should handle this gracefully
+## TypeScript Config Notes
 
-### Data types
-
-All shared types are in `src/types/supabase.ts`. Key types: `Product`, `Order`, `Profile`, `Category`, `BusinessCategory`, `ContactMessage`. `OrderStatus` = `'pending' | 'processing' | 'shipped' | 'delivered'`. `UserRole` = `'admin' | 'customer'`.
-
-### UI components
-
-`src/components/ui/` contains the full shadcn/ui component library — do not edit these files. Custom components go in `src/components/layout/` (Header, Footer, WhatsAppButton), `src/components/home/`, `src/components/admin/`, and `src/components/products/`.
-
-### Admin panel
-
-`AdminLayout` (`src/components/admin/AdminLayout.tsx`) wraps all `/admin/*` pages with a sidebar. Admin pages fetch data directly from API routes via `fetch()` in `useEffect`.
-
-### Path alias
-
-`@/` maps to `src/` — use it for all imports.
+`strict` and `strictNullChecks` are disabled. Image optimization is disabled in `next.config.js` (`unoptimized: true`). ESLint has `@typescript-eslint/no-unused-vars` disabled.

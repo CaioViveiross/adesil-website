@@ -4,7 +4,8 @@ import Layout from "@/components/layout/Layout";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Trash2, Minus, Plus, ShoppingBag } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, total, coupon, setCoupon, discount, applyCoupon } = useCart();
@@ -15,12 +16,18 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <Layout>
-        <div className="container py-20 text-center space-y-4">
-          <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground/40" />
-          <h1 className="text-2xl font-bold">Seu carrinho está vazio</h1>
-          <p className="text-muted-foreground pb-6">Adicione produtos para continuar.</p>
+        <div className="container py-20 md:py-28 flex flex-col items-center justify-center text-center gap-5">
+          <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center">
+            <ShoppingBag className="h-9 w-9 text-muted-foreground/50" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">Seu carrinho está vazio</h1>
+            <p className="text-muted-foreground text-sm">Adicione produtos para continuar comprando.</p>
+          </div>
           <Link href="/categoria/todos">
-            <Button variant="hero">Ver Produtos</Button>
+            <Button className="h-11 px-6 rounded-xl font-semibold">
+              Ver produtos <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
           </Link>
         </div>
       </Layout>
@@ -29,72 +36,135 @@ export default function CartPage() {
 
   return (
     <Layout>
-      <div className="container py-10">
-        <h1 className="text-3xl font-bold mb-8">Carrinho</h1>
+      <div className="container py-12 md:py-20">
+        <div className="mb-8 md:mb-10">
+          <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Compra</span>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Carrinho</h1>
+          <p className="text-muted-foreground text-sm mt-1">{items.length} {items.length === 1 ? 'item' : 'itens'} adicionados</p>
+        </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div key={`${item.product.id}-${item.customization?.text}`} className="flex gap-4 p-4 rounded-2xl border bg-card">
-                <img
-                  src={item.product.image}
-                  alt={item.product.name}
-                  className="w-24 h-24 rounded-xl object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{item.product.name}</h3>
-                  {item.customization && (
-                    <p className="text-xs text-primary mt-0.5">Personalizado: "{item.customization.text}"</p>
-                  )}
-                  <p className="text-lg font-bold mt-1">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center border rounded-full">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.product.id, item.quantity - 1)}>
+        <div className="grid lg:grid-cols-3 gap-8 items-start">
+          {/* Items */}
+          <div className="lg:col-span-2 space-y-3">
+            {items.map((item, i) => (
+              <motion.div
+                key={`${item.product.id}-${item.customization?.text}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+                className="flex gap-4 p-4 rounded-2xl border border-border bg-card hover:border-primary/20 transition-colors"
+              >
+                <Link href={`/produto/${item.product.id}`} className="shrink-0">
+                  <img
+                    src={item.product.image}
+                    alt={item.product.name}
+                    className="w-20 h-20 rounded-xl object-cover bg-muted"
+                  />
+                </Link>
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                  <div>
+                    <Link href={`/produto/${item.product.id}`}>
+                      <h3 className="font-semibold text-sm leading-snug hover:text-primary transition-colors line-clamp-2">
+                        {item.product.name}
+                      </h3>
+                    </Link>
+                    {item.customization && (
+                      <p className="text-xs text-primary mt-0.5">Personalizado: "{item.customization.text}"</p>
+                    )}
+                  </div>
+                  <p className="text-base font-bold">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center border border-border rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors"
+                      >
                         <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center text-sm tabular-nums">{item.quantity}</span>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>
+                      </button>
+                      <span className="w-9 text-center text-sm font-medium tabular-nums">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors"
+                      >
                         <Plus className="h-3 w-3" />
-                      </Button>
+                      </button>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => removeItem(item.product.id)}>
+                    <button
+                      onClick={() => removeItem(item.product.id)}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-colors"
+                    >
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
-          <div className="bg-card rounded-2xl border p-6 h-fit space-y-4 sticky top-24">
-            <h2 className="font-bold text-lg">Resumo</h2>
+          {/* Summary */}
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-5 sticky top-24">
+            <h2 className="font-bold text-base">Resumo do pedido</h2>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                placeholder="Cupom de desconto"
-                className="flex-1 px-4 py-2 border rounded-full text-sm bg-background"
-              />
-              <Button size="sm" onClick={applyCoupon}>Aplicar</Button>
+            {/* Coupon */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={coupon}
+                    onChange={(e) => setCoupon(e.target.value)}
+                    placeholder="Cupom de desconto"
+                    className="w-full h-10 pl-8 pr-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <Button size="sm" onClick={applyCoupon} className="h-10 rounded-xl px-4 font-semibold">
+                  Aplicar
+                </Button>
+              </div>
+              {discount > 0 && (
+                <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                  Cupom aplicado: {discount}% de desconto
+                </p>
+              )}
             </div>
-            {discount > 0 && <p className="text-xs text-green-600 font-medium">Cupom aplicado: {discount}% de desconto!</p>}
 
-            <div className="space-y-2 text-sm border-t pt-4">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>R$ {total.toFixed(2).replace(".", ",")}</span></div>
-              {discount > 0 && <div className="flex justify-between text-green-600"><span>Desconto</span><span>- R$ {discountAmount.toFixed(2).replace(".", ",")}</span></div>}
-              <div className="flex justify-between"><span className="text-muted-foreground">Frete</span><span>{shipping === 0 ? <span className="text-green-600">Grátis</span> : `R$ ${shipping.toFixed(2).replace(".", ",")}`}</span></div>
-              <div className="flex justify-between font-bold text-lg border-t pt-3">
+            {/* Totals */}
+            <div className="space-y-2.5 text-sm border-t border-border pt-4">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="text-foreground">R$ {total.toFixed(2).replace(".", ",")}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Desconto ({discount}%)</span>
+                  <span>− R$ {discountAmount.toFixed(2).replace(".", ",")}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-muted-foreground">
+                <span>Frete</span>
+                <span className={shipping === 0 ? "text-emerald-600 font-medium" : "text-foreground"}>
+                  {shipping === 0 ? "Grátis" : `R$ ${shipping.toFixed(2).replace(".", ",")}`}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold text-base border-t border-border pt-3 mt-1">
                 <span>Total</span>
                 <span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
               </div>
             </div>
 
             <Link href="/checkout" className="block">
-              <Button variant="hero" className="w-full">Finalizar Compra</Button>
+              <Button className="w-full h-11 rounded-xl font-semibold">
+                Finalizar compra <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
             </Link>
-            <p className="text-xs text-center text-muted-foreground">Frete grátis para compras acima de R$ 300</p>
+
+            {total <= 300 && (
+              <p className="text-xs text-center text-muted-foreground">
+                Faltam <span className="font-semibold text-foreground">R$ {(300 - total).toFixed(2).replace(".", ",")}</span> para frete grátis
+              </p>
+            )}
           </div>
         </div>
       </div>
