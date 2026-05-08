@@ -5,6 +5,7 @@ import HeroSection from "@/components/home/HeroSection";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import BusinessCategories from "@/components/home/BusinessCategories";
 import BenefitsSection from "@/components/home/BenefitsSection";
+import SobreNosSection from "@/components/home/SobreNosSection";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import ContactCTA from "@/components/home/ContactCTA";
 
@@ -15,6 +16,7 @@ export default function Home() {
       <FeaturedProducts />
       <BusinessCategories />
       <BenefitsSection />
+      <SobreNosSection />
       <ReviewsSection />
       <ContactCTA />
     </Layout>

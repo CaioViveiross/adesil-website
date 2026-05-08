@@ -7,7 +7,7 @@ import Image from "next/image";
 const Footer = () => {
   return (
     <footer className="bg-foreground text-background/75">
-      <div className="container py-20 md:py-24">
+      <div className="container py-16 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="space-y-5">
@@ -130,7 +130,7 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-background/8 pt-8 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-background/28">
+        <div className="pt-2 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-background/28">
           <p>© {new Date().getFullYear()} Adesil Print. Todos os direitos reservados.</p>
           <p>Desenvolvido por @CaioViveiros</p>
         </div>

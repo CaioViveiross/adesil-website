@@ -86,7 +86,7 @@ const HeroSection = () => {
             </motion.p>
 
             <motion.div variants={item} className="flex flex-wrap gap-3">
-              <Link href="/categoria/adesivas">
+              <Link href="/categoria/todos">
                 <Button className="bg-white text-foreground hover:bg-white/92 font-semibold h-11 px-6 rounded-xl shadow-lg shadow-black/25 border-0">
                   Ver produtos <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>

@@ -57,7 +57,7 @@ const FeaturedProducts = () => {
         </motion.div>
 
         <Link
-          href="/categoria/adesivas"
+          href="/categoria/todos"
           className="hidden md:flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors group"
         >
           Ver todos
@@ -85,7 +85,7 @@ const FeaturedProducts = () => {
 
       <div className="flex md:hidden justify-center mt-8">
         <Link
-          href="/categoria/adesivas"
+          href="/categoria/todos"
           className="flex items-center gap-1.5 text-sm font-medium text-primary"
         >
           Ver todos os produtos <ArrowRight className="h-4 w-4" />

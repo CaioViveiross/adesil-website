@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, Menu, X, User, LogOut } from "lucide-react";
+import { ShoppingCart, Menu, X, User, LogOut, Package, MapPin, LayoutDashboard, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ const Header = () => {
 
   const navLinks = [
     { label: "Produtos", href: "/categoria/todos" },
+    { label: "Sobre Nós", href: "/sobre" },
     { label: "Contato", href: "/contato" },
   ];
 
@@ -46,6 +47,7 @@ const Header = () => {
           />
         </Link>
 
+        {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => (
             <Link
@@ -67,47 +69,82 @@ const Header = () => {
           ))}
         </nav>
 
+        {/* Actions */}
         <div className="flex items-center gap-1">
           {!loading && (
             user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hidden md:flex h-9 w-9 rounded-lg">
-                    <User className="h-4 w-4" />
-                  </Button>
+                  <button className="hidden md:flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/50 transition-all duration-200 group">
+                    <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+                      <span className="text-primary-foreground text-[11px] font-bold leading-none select-none">
+                        {user.name?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium text-foreground max-w-[100px] truncate">
+                      {user.name?.split(" ")[0]}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform duration-200" />
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-foreground">
-                    Olá, {user.name}
+
+                <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 shadow-lg border border-border">
+                  {/* Profile header */}
+                  <div className="px-3 py-2.5 mb-1">
+                    <p className="text-sm font-semibold text-foreground leading-none">{user.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{user.email}</p>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/meus-pedidos">Meus Pedidos</Link>
+
+                  <DropdownMenuSeparator className="my-1" />
+
+                  <DropdownMenuItem asChild className="rounded-lg gap-2.5 cursor-pointer">
+                    <Link href="/meus-pedidos">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      Meus Pedidos
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/meu-endereco">Meu Endereço</Link>
+
+                  <DropdownMenuItem asChild className="rounded-lg gap-2.5 cursor-pointer">
+                    <Link href="/meu-endereco">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      Meu Endereço
+                    </Link>
                   </DropdownMenuItem>
+
                   {user.role === 'admin' && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin">Painel Admin</Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator className="my-1" />
+                      <DropdownMenuItem asChild className="rounded-lg gap-2.5 cursor-pointer">
+                        <Link href="/admin">
+                          <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+                          Painel Admin
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sair
+
+                  <DropdownMenuSeparator className="my-1" />
+
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="rounded-lg gap-2.5 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/8"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sair da conta
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Link href="/auth" className="hidden md:flex">
-                <Button variant="ghost" size="sm" className="h-9 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="sm" className="h-9 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground gap-1.5">
+                  <User className="h-4 w-4" />
                   Entrar
                 </Button>
               </Link>
             )
           )}
 
+          {/* Cart */}
           <Link href="/carrinho">
             <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-lg">
               <ShoppingCart className="h-4 w-4" />
@@ -127,6 +164,7 @@ const Header = () => {
             </Button>
           </Link>
 
+          {/* Mobile hamburger */}
           <Button
             variant="ghost"
             size="icon"
@@ -138,16 +176,25 @@ const Header = () => {
         </div>
       </div>
 
+      {/* Backdrop — fecha ao clicar fora */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 top-16 md:hidden z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile Menu — overlay flutuante */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="md:hidden border-t border-border/60 bg-background overflow-hidden"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute top-full left-0 right-0 md:hidden border-t border-border/60 bg-background shadow-xl z-50 overflow-hidden"
           >
-            <nav className="container py-4 flex flex-col gap-1">
+            <nav className="container py-3 flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -166,46 +213,60 @@ const Header = () => {
               {!loading && (
                 user ? (
                   <div className="border-t border-border/60 pt-3 mt-2 space-y-1">
-                    <div className="text-[11px] font-semibold text-muted-foreground px-3 py-1 uppercase tracking-wider">
-                      Minha conta
+                    {/* User info */}
+                    <div className="flex items-center gap-3 px-3 py-2 mb-1">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-primary-foreground text-xs font-bold">
+                          {user.name?.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
                     </div>
+
                     <Link
                       href="/meus-pedidos"
-                      className="block text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center gap-3 text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
                       onClick={() => setMobileOpen(false)}
                     >
+                      <Package className="h-4 w-4 text-muted-foreground" />
                       Meus Pedidos
                     </Link>
                     <Link
                       href="/meu-endereco"
-                      className="block text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center gap-3 text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
                       onClick={() => setMobileOpen(false)}
                     >
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
                       Meu Endereço
                     </Link>
                     {user.role === 'admin' && (
                       <Link
                         href="/admin"
-                        className="block text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
+                        className="flex items-center gap-3 text-sm font-medium px-3 py-2.5 rounded-lg hover:bg-muted transition-colors"
                         onClick={() => setMobileOpen(false)}
                       >
+                        <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
                         Painel Admin
                       </Link>
                     )}
                     <button
                       onClick={handleSignOut}
-                      className="flex w-full items-center gap-2 text-sm font-medium px-3 py-2.5 rounded-lg text-destructive hover:bg-destructive/5 transition-colors"
+                      className="flex w-full items-center gap-3 text-sm font-medium px-3 py-2.5 rounded-lg text-destructive hover:bg-destructive/5 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
-                      Sair
+                      Sair da conta
                     </button>
                   </div>
                 ) : (
                   <Link
                     href="/auth"
-                    className="text-sm font-semibold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-center mt-2 block"
+                    className="flex items-center justify-center gap-2 text-sm font-semibold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground mt-2"
                     onClick={() => setMobileOpen(false)}
                   >
+                    <User className="h-4 w-4" />
                     Entre ou Cadastre-se
                   </Link>
                 )
