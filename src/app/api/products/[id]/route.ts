@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 
+async function getFeaturedProductsCount(supabase: any, excludingProductId?: string) {
+  let query = supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("is_featured", true);
+
+  if (excludingProductId) {
+    query = query.neq("id", excludingProductId);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
+
 // GET /api/products/[id] - Buscar produto por ID
 export async function GET(
   request: NextRequest,
@@ -12,24 +27,13 @@ export async function GET(
 
     const { data, error } = await supabase
       .from("products")
-      .select(`
-        *,
-        product_business_categories (
-          business_category_id
-        )
-      `)
+      .select("*")
       .eq("id", id)
       .single();
 
     if (error) throw error;
 
-    // Transformar os dados
-    const transformedProduct = {
-      ...data,
-      business_categories: data.product_business_categories?.map((pbc: any) => pbc.business_category_id) || []
-    };
-
-    return NextResponse.json(transformedProduct);
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching product:", error);
     return NextResponse.json(
@@ -71,7 +75,17 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { business_categories, ...productData } = body;
+    const productData = body;
+
+    if (productData.is_featured === true) {
+      const featuredCount = await getFeaturedProductsCount(supabase, id);
+      if (featuredCount >= 4) {
+        return NextResponse.json(
+          { error: "Máximo de 4 produtos em destaque permitido." },
+          { status: 400 }
+        );
+      }
+    }
 
     if (productData.category !== undefined && productData.category !== null) {
       const parsedCategory = parseInt(productData.category.toString(), 10);
@@ -92,52 +106,7 @@ export async function PUT(
 
     if (productError) throw productError;
 
-    // Atualizar as relações de categorias de negócio
-    if (business_categories !== undefined) {
-      // Remover relações existentes
-      await supabase
-        .from("product_business_categories")
-        .delete()
-        .eq("product_id", id);
-
-      // Criar novas relações se fornecidas
-      if (Array.isArray(business_categories) && business_categories.length > 0) {
-        const relations = business_categories.map(businessCategoryId => ({
-          product_id: id,
-          business_category_id: businessCategoryId
-        }));
-
-        const { error: relationError } = await supabase
-          .from("product_business_categories")
-          .insert(relations);
-
-        if (relationError) {
-          console.error("Error updating business category relations:", relationError);
-        }
-      }
-    }
-
-    // Buscar o produto completo com as relações atualizadas
-    const { data: completeProduct, error: fetchError } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_business_categories (
-          business_category_id
-        )
-      `)
-      .eq("id", id)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    // Transformar os dados
-    const transformedProduct = {
-      ...completeProduct,
-      business_categories: completeProduct.product_business_categories?.map((pbc: any) => pbc.business_category_id) || []
-    };
-
-    return NextResponse.json(transformedProduct);
+    return NextResponse.json(product);
   } catch (error) {
     console.error("Error updating product:", error);
     return NextResponse.json(
@@ -178,7 +147,6 @@ export async function DELETE(
       );
     }
 
-    // As relações serão deletadas automaticamente devido às foreign keys
     const { error } = await supabase
       .from("products")
       .delete()

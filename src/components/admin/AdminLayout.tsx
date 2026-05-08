@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Users, ArrowLeft, Tag, Palette, Settings } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, ArrowLeft, Tag, Settings, Mail } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Produtos", href: "/admin/produtos", icon: Package },
   { label: "Pedidos", href: "/admin/pedidos", icon: ShoppingCart },
   { label: "Categorias", href: "/admin/categorias", icon: Tag },
+  { label: "Contatos", href: "/admin/contato", icon: Mail },
   { label: "Configurações", href: "/admin/configuracoes", icon: Settings },
 ];
 
