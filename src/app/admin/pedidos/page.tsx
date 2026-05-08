@@ -110,6 +110,25 @@ export default function AdminOrdersPage() {
   const subtotal = (order: Order) =>
     order.items_detail?.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
 
+  const getFirstString = (source: Record<string, unknown>, keys: string[]) => {
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === "string" && value.trim()) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+
+  const getFirstDate = (source: Record<string, unknown>, keys: string[]) => {
+    const value = getFirstString(source, keys);
+    if (!value) return undefined;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  };
+
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-8">

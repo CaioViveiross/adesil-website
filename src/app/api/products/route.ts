@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 
+async function getFeaturedProductsCount(supabase: any) {
+  const { count, error } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("is_featured", true);
+
+  if (error) throw error;
+  return count || 0;
+}
+
 // GET /api/products - Listar produtos
 export async function GET(request: NextRequest) {
   try {
@@ -9,18 +19,56 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
     const categoryParam = searchParams.get("category");
-    const businessCategoryParam = searchParams.get("business_category");
+    const featuredParam = searchParams.get("featured");
     const categoryId = categoryParam ? parseInt(categoryParam, 10) : undefined;
-    const businessCategoryId = businessCategoryParam ? parseInt(businessCategoryParam, 10) : undefined;
+
+    if (featuredParam === "true") {
+      let featuredQuery = supabase
+        .from("products")
+        .select("*")
+        .eq("is_featured", true)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (categoryParam) {
+        if (Number.isNaN(categoryId)) {
+          return NextResponse.json([], { status: 200 });
+        }
+        featuredQuery = featuredQuery.eq("category", categoryId);
+      }
+
+      const { data: featuredProducts, error: featuredError } = await featuredQuery;
+      if (featuredError) throw featuredError;
+
+      const selectedFeatured = featuredProducts || [];
+      if (selectedFeatured.length >= limit) {
+        return NextResponse.json(selectedFeatured.slice(0, limit));
+      }
+
+      let recentQuery = supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(Math.max(limit * 10, 40));
+
+      if (categoryParam) {
+        recentQuery = recentQuery.eq("category", categoryId);
+      }
+
+      const { data: recentProducts, error: recentError } = await recentQuery;
+      if (recentError) throw recentError;
+
+      const featuredIds = new Set(selectedFeatured.map((product: { id: string }) => product.id));
+      const fallbackProducts = (recentProducts || [])
+        .filter((product: { id: string; is_featured?: boolean }) => !product.is_featured && !featuredIds.has(product.id))
+        .slice(0, Math.max(limit - selectedFeatured.length, 0));
+
+      return NextResponse.json([...selectedFeatured, ...fallbackProducts]);
+    }
 
     let query = supabase
       .from("products")
-      .select(`
-        *,
-        product_business_categories (
-          business_category_id
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (categoryParam) {
@@ -30,39 +78,11 @@ export async function GET(request: NextRequest) {
       query = query.eq("category", categoryId);
     }
 
-    // Se filtrar por categoria de negócio, precisamos de uma abordagem diferente
-    if (businessCategoryParam) {
-      if (Number.isNaN(businessCategoryId)) {
-        return NextResponse.json([], { status: 200 });
-      }
-      // Buscar produtos que têm a categoria de negócio específica
-      const { data: productIds, error: relationError } = await supabase
-        .from("product_business_categories")
-        .select("product_id")
-        .eq("business_category_id", businessCategoryId);
-
-      if (relationError) throw relationError;
-
-      const ids = productIds?.map(p => p.product_id) || [];
-      if (ids.length > 0) {
-        query = query.in("id", ids);
-      } else {
-        // Se não há produtos com essa categoria, retornar array vazio
-        return NextResponse.json([]);
-      }
-    }
-
     const { data, error } = await query.range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    // Transformar os dados para incluir business_categories como array simples
-    const transformedData = data?.map(product => ({
-      ...product,
-      business_categories: product.product_business_categories?.map((pbc: any) => pbc.business_category_id) || []
-    })) || [];
-
-    return NextResponse.json(transformedData);
+    return NextResponse.json(data || []);
   } catch (error) {
     console.error("Error fetching products:", error);
     return NextResponse.json(
@@ -100,7 +120,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { business_categories, ...productData } = body;
+    const productData = body;
+
+    if (productData.is_featured === true) {
+      const featuredCount = await getFeaturedProductsCount(supabase);
+      if (featuredCount >= 4) {
+        return NextResponse.json(
+          { error: "Máximo de 4 produtos em destaque permitido." },
+          { status: 400 }
+        );
+      }
+    }
 
     if (productData.category !== undefined && productData.category !== null) {
       const parsedCategory = parseInt(productData.category.toString(), 10);
@@ -120,44 +150,7 @@ export async function POST(request: NextRequest) {
 
     if (productError) throw productError;
 
-    // Se foram fornecidas categorias de negócio, criar as relações
-    if (business_categories && Array.isArray(business_categories) && business_categories.length > 0) {
-      const relations = business_categories.map(businessCategoryId => ({
-        product_id: product.id,
-        business_category_id: businessCategoryId
-      }));
-
-      const { error: relationError } = await supabase
-        .from("product_business_categories")
-        .insert(relations);
-
-      if (relationError) {
-        console.error("Error creating business category relations:", relationError);
-        // Não falhar a criação do produto se as relações falharem
-      }
-    }
-
-    // Buscar o produto completo com as relações
-    const { data: completeProduct, error: fetchError } = await supabase
-      .from("products")
-      .select(`
-        *,
-        product_business_categories (
-          business_category_id
-        )
-      `)
-      .eq("id", product.id)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    // Transformar os dados
-    const transformedProduct = {
-      ...completeProduct,
-      business_categories: completeProduct.product_business_categories?.map((pbc: any) => pbc.business_category_id) || []
-    };
-
-    return NextResponse.json(transformedProduct, { status: 201 });
+    return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error("Error creating product:", error);
     return NextResponse.json(
