@@ -3,12 +3,23 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Package } from "lucide-react";
+import { Package, ChevronRight } from "lucide-react";
 import { parseOrderDate } from "@/lib/utils";
 import { statusLabels } from "@/types/supabase";
 import type { Order } from "@/types/supabase";
+import { motion } from "framer-motion";
+
+const OrderSkeleton = () => (
+  <div className="flex items-center gap-4 p-5 rounded-2xl border border-border bg-card">
+    <div className="w-11 h-11 rounded-xl bg-muted animate-pulse shrink-0" />
+    <div className="flex-1 space-y-2">
+      <div className="h-4 bg-muted animate-pulse rounded-full w-32" />
+      <div className="h-3 bg-muted animate-pulse rounded-full w-48" />
+    </div>
+    <div className="h-6 bg-muted animate-pulse rounded-full w-20 shrink-0" />
+  </div>
+);
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -21,110 +32,93 @@ export default function MyOrdersPage() {
     setModalOpen(true);
     setLoadingOrder(true);
     setSelectedOrder(null);
-
     try {
       const response = await fetch(`/api/orders/${orderId}`);
-      if (!response.ok) {
-        throw new Error("Não foi possível carregar o pedido.");
-      }
-      const data: Order = await response.json();
-      setSelectedOrder(data);
-    } catch (error) {
-      console.error("Error loading order detail:", error);
+      if (!response.ok) throw new Error();
+      setSelectedOrder(await response.json());
+    } catch {
+      console.error("Error loading order detail");
     } finally {
       setLoadingOrder(false);
     }
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setSelectedOrder(null);
-  };
+  const closeModal = () => { setModalOpen(false); setSelectedOrder(null); };
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        // Buscar apenas os pedidos do usuário autenticado
         const response = await fetch('/api/orders?mine=true');
-        if (response.ok) {
-          const data = await response.json();
-          setOrders(data);
-        }
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-      } finally {
-        setLoading(false);
-      }
+        if (response.ok) setOrders(await response.json());
+      } catch { console.error('Error fetching orders'); }
+      finally { setLoading(false); }
     };
-
     fetchOrders();
   }, []);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="container py-10 max-w-3xl">
-          <h1 className="text-3xl font-bold mb-8">Meus Pedidos</h1>
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-5 rounded-2xl border bg-card">
-                <div className="w-12 h-12 rounded-full bg-muted animate-pulse"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-muted animate-pulse rounded w-32"></div>
-                  <div className="h-3 bg-muted animate-pulse rounded w-48"></div>
-                </div>
-                <div className="h-6 bg-muted animate-pulse rounded w-20"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
-      <div className="container py-10 max-w-3xl">
-        <h1 className="text-3xl font-bold mb-8">Meus Pedidos</h1>
-        {orders.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Você ainda não fez nenhum pedido.</p>
+      <div className="container py-12 md:py-20 max-w-3xl">
+        <div className="mb-8 md:mb-10">
+          <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Conta</span>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Meus Pedidos</h1>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => <OrderSkeleton key={i} />)}
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col items-center text-center gap-4 py-20">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+              <Package className="h-7 w-7 text-muted-foreground/50" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold">Nenhum pedido ainda</p>
+              <p className="text-sm text-muted-foreground">Seus pedidos aparecerão aqui após a primeira compra.</p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div key={order.id} className="flex flex-col md:flex-row items-start md:items-center gap-4 p-5 rounded-2xl border bg-card hover:shadow-sm transition-shadow">
-                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
+          <div className="space-y-3">
+            {orders.map((order, i) => (
+              <motion.div
+                key={order.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: i * 0.05 }}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 rounded-2xl border border-border bg-card hover:border-primary/20 transition-colors cursor-pointer group"
+                onClick={() => openOrderDetail(order.id)}
+              >
+                <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center shrink-0">
                   <Package className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold">Pedido #{order.id}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusLabels[order.status].color}`}>
+                    <span className="font-semibold text-sm">Pedido #{String(order.id).slice(0, 8)}...</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide ${statusLabels[order.status].color}`}>
                       {statusLabels[order.status].label}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">{order.items} item(ns) • {parseOrderDate(order.date, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
-                  <p className="text-sm text-muted-foreground">CEP: {order.shipping_zipcode ?? 'N/A'} • {order.shipping_city ?? '---'}/{order.shipping_state ?? '---'}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {order.items} {order.items === 1 ? 'item' : 'itens'} · {parseOrderDate(order.date, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{order.shipping_city ?? '—'}/{order.shipping_state ?? '—'}</p>
                 </div>
-                <div className="flex flex-col gap-3 items-stretch sm:items-end">
-                  <p className="font-bold tabular-nums">R$ {order.total.toFixed(2).replace(".", ",")}</p>
-                  <Button variant="outline" size="sm" onClick={() => openOrderDetail(order.id)}>
-                    Ver pedido
-                  </Button>
+                <div className="flex items-center gap-3 sm:flex-col sm:items-end gap-y-1">
+                  <p className="font-bold tabular-nums text-sm">R$ {order.total.toFixed(2).replace(".", ",")}</p>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
       </div>
 
       <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
-        <DialogContent>
+        <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle>
-              {loadingOrder ? "Carregando pedido..." : selectedOrder ? `Pedido #${selectedOrder.id}` : "Detalhes do pedido"}
+              {loadingOrder ? "Carregando pedido..." : selectedOrder ? `Pedido #${selectedOrder.id.slice(0, 8)}...` : "Detalhes do pedido"}
             </DialogTitle>
             <DialogDescription>
               {selectedOrder ? parseOrderDate(selectedOrder.date, selectedOrder.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ""}
@@ -132,46 +126,47 @@ export default function MyOrdersPage() {
           </DialogHeader>
 
           {loadingOrder ? (
-            <div className="py-10 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
-              <p className="text-muted-foreground mt-4">Carregando detalhes...</p>
+            <div className="py-12 flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <p className="text-sm text-muted-foreground">Carregando detalhes...</p>
             </div>
           ) : selectedOrder ? (
-            <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border bg-card p-4">
-                  <h3 className="text-sm font-semibold mb-3">Resumo</h3>
-                  <p className="text-sm text-muted-foreground mb-1">Itens: {selectedOrder.items}</p>
-                  <p className="text-sm text-muted-foreground">Total: <span className="font-semibold">R$ {selectedOrder.total.toFixed(2).replace(".", ",")}</span></p>
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Resumo</p>
+                  <p className="text-sm">{selectedOrder.items} {selectedOrder.items === 1 ? 'item' : 'itens'}</p>
+                  <p className="font-bold mt-1">R$ {selectedOrder.total.toFixed(2).replace(".", ",")}</p>
                 </div>
-                <div className="rounded-3xl border bg-card p-4">
-                  <h3 className="text-sm font-semibold mb-3">Status</h3>
-                  <Badge className={statusLabels[selectedOrder.status].color}>{statusLabels[selectedOrder.status].label}</Badge>
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Status</p>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wide ${statusLabels[selectedOrder.status].color}`}>
+                    {statusLabels[selectedOrder.status].label}
+                  </span>
                 </div>
               </div>
 
-              <div className="rounded-3xl border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Entrega</h3>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>{selectedOrder.shipping_street ?? "-"}, {selectedOrder.shipping_number ?? "-"}</p>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Entrega</p>
+                <div className="text-sm text-muted-foreground space-y-0.5">
+                  <p>{selectedOrder.shipping_street ?? "—"}, {selectedOrder.shipping_number ?? "—"}</p>
                   {selectedOrder.shipping_complement && <p>{selectedOrder.shipping_complement}</p>}
-                  <p>{selectedOrder.shipping_city ?? "-"} / {selectedOrder.shipping_state ?? "-"}</p>
-                  <p>CEP: {selectedOrder.shipping_zipcode ?? "-"}</p>
+                  <p>{selectedOrder.shipping_city ?? "—"} / {selectedOrder.shipping_state ?? "—"}</p>
+                  <p>CEP: {selectedOrder.shipping_zipcode ?? "—"}</p>
                 </div>
               </div>
 
-              <div className="rounded-3xl border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Itens do pedido</h3>
-                <div className="space-y-3">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Itens</p>
+                <div className="space-y-2">
                   {selectedOrder.items_detail?.length ? (
                     selectedOrder.items_detail.map((item) => (
-                      <div key={item.product_id} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] items-center rounded-2xl border border-border bg-background p-4">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">Quantidade: {item.quantity}</p>
+                      <div key={item.product_id} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 last:border-0">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.quantity}× R$ {item.price.toFixed(2).replace(".", ",")}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">R$ {item.price.toFixed(2).replace(".", ",")}</p>
-                        <p className="font-semibold">R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}</p>
+                        <p className="font-semibold text-sm shrink-0">R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}</p>
                       </div>
                     ))
                   ) : (
@@ -181,11 +176,11 @@ export default function MyOrdersPage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Não foi possível carregar detalhes do pedido.</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">Não foi possível carregar os detalhes.</p>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeModal}>Fechar</Button>
+            <Button variant="outline" onClick={closeModal} className="rounded-xl">Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

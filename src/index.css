@@ -86,7 +86,7 @@
   }
 }
 
-/* Scroll reveal animation */
+/* Preserved for any legacy usage */
 @keyframes reveal-up {
   from {
     opacity: 0;
@@ -105,20 +105,45 @@
   opacity: 0;
 }
 
-/* Hero gradient animation */
 @keyframes gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradient-shift 8s ease infinite;
+}
+
+/* Hero animated background */
+@keyframes hero-gradient-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.hero-bg-animated {
+  background: linear-gradient(
+    135deg,
+    #001489 0%,
+    #001fb8 25%,
+    #000d66 50%,
+    #0028cc 75%,
+    #001060 100%
+  );
+  background-size: 300% 300%;
+  animation: hero-gradient-drift 40s ease infinite;
+}
+
+/* Focus ring consistency */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Smooth selection */
+::selection {
+  background-color: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
 }

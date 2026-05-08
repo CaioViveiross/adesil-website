@@ -5,15 +5,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { Package, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Package } from "lucide-react";
 import { parseOrderDate } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { statusLabels } from "@/types/supabase";
 import type { Order } from "@/types/supabase";
+import { motion } from "framer-motion";
 
-function formatCurrency(value?: number) {
-  return value !== undefined ? `R$ ${value.toFixed(2).replace(".", ",")}` : "R$ 0,00";
-}
+const fmt = (value?: number) =>
+  value !== undefined ? `R$ ${value.toFixed(2).replace(".", ",")}` : "R$ 0,00";
 
 export default function MyOrderDetailPage() {
   const params = useParams();
@@ -21,46 +21,37 @@ export default function MyOrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const orderId = params?.id;
 
   useEffect(() => {
     if (!orderId || loading) return;
-
     const fetchOrder = async () => {
       setLoadingOrder(true);
       setError(null);
-
       try {
         const response = await fetch(`/api/orders/${orderId}`);
-        if (!response.ok) {
-          throw new Error("Pedido não encontrado");
-        }
+        if (!response.ok) throw new Error("Pedido não encontrado");
         const data: Order = await response.json();
-
         if (user && data.customer_id && data.customer_id !== user.id && user.role !== 'admin') {
           setError("Você não tem permissão para ver este pedido.");
-          setOrder(null);
         } else {
           setOrder(data);
         }
-      } catch (fetchError) {
-        console.error("Error fetching order detail:", fetchError);
+      } catch (err) {
         setError("Não foi possível carregar os detalhes do pedido.");
       } finally {
         setLoadingOrder(false);
       }
     };
-
     fetchOrder();
   }, [orderId, user, loading]);
 
   if (loading || loadingOrder) {
     return (
       <Layout>
-        <div className="container py-20 text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground mt-4">Carregando pedido...</p>
+        <div className="container py-20 flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <p className="text-sm text-muted-foreground">Carregando pedido...</p>
         </div>
       </Layout>
     );
@@ -69,37 +60,24 @@ export default function MyOrderDetailPage() {
   if (!user) {
     return (
       <Layout>
-        <div className="container py-20 text-center">
-          <p className="text-xl font-semibold">Faça login para ver seus pedidos.</p>
-          <Button asChild>
-            <Link href="/auth">Ir para login</Link>
-          </Button>
+        <div className="container py-20 flex flex-col items-center text-center gap-4">
+          <p className="font-semibold">Faça login para ver seus pedidos.</p>
+          <Button asChild className="h-10 rounded-xl"><Link href="/auth">Ir para login</Link></Button>
         </div>
       </Layout>
     );
   }
 
-  if (error) {
+  if (error || !order) {
     return (
       <Layout>
-        <div className="container py-20 text-center">
-          <p className="text-xl font-semibold mb-4">Ops...</p>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <Button asChild>
+        <div className="container py-20 flex flex-col items-center text-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+            <Package className="h-7 w-7 text-muted-foreground/50" />
+          </div>
+          <p className="font-semibold">{error || "Pedido não encontrado"}</p>
+          <Button asChild variant="outline" className="h-10 rounded-xl">
             <Link href="/meus-pedidos">Voltar para meus pedidos</Link>
-          </Button>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (!order) {
-    return (
-      <Layout>
-        <div className="container py-20 text-center">
-          <p className="text-xl font-semibold">Pedido não encontrado</p>
-          <Button asChild className="mt-4">
-            <Link href="/meus-pedidos">Voltar</Link>
           </Button>
         </div>
       </Layout>
@@ -108,69 +86,102 @@ export default function MyOrderDetailPage() {
 
   return (
     <Layout>
-      <div className="container py-10 max-w-4xl">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Link href="/meus-pedidos" className="inline-flex items-center gap-2 text-primary hover:text-primary/80">
-              <ArrowLeft className="h-4 w-4" /> Voltar aos pedidos
-            </Link>
-            <h1 className="text-3xl font-bold mt-4">Pedido #{order.id}</h1>
-            <p className="text-muted-foreground">{parseOrderDate(order.date, order.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
-          </div>
-          <div className={`rounded-full px-3 py-1 text-xs font-semibold ${statusLabels[order.status].color}`}>
-            {statusLabels[order.status].label}
-          </div>
-        </div>
+      <div className="container py-12 md:py-20 max-w-4xl">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <Link
+            href="/meus-pedidos"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 group"
+          >
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+            Voltar aos pedidos
+          </Link>
 
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <div className="rounded-3xl border bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-semibold mb-4">Resumo</h2>
-            <p className="text-sm text-muted-foreground mb-2">{order.items} item(ns)</p>
-            <p className="text-sm text-muted-foreground">Total: <span className="font-semibold">{formatCurrency(order.total)}</span></p>
-          </div>
-          <div className="rounded-3xl border bg-card p-6 shadow-sm">
-            <h2 className="text-lg font-semibold mb-4">Entrega</h2>
-            <p className="text-sm text-muted-foreground">{order.shipping_street ?? "-"}, {order.shipping_number ?? "-"}</p>
-            {order.shipping_complement && <p className="text-sm text-muted-foreground">{order.shipping_complement}</p>}
-            <p className="text-sm text-muted-foreground">{order.shipping_city ?? "-"}, {order.shipping_state ?? "-"}</p>
-            <p className="text-sm text-muted-foreground">CEP: {order.shipping_zipcode ?? "-"}</p>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8">
             <div>
-              <h2 className="text-lg font-semibold">Itens do pedido</h2>
-              <p className="text-sm text-muted-foreground">Confira cada item solicitado.</p>
+              <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Pedido</span>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">#{String(order.id).slice(0, 8)}...</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {parseOrderDate(order.date, order.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">Frete: {formatCurrency(order.shipping_cost)}</p>
+            <span className={`self-start text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide ${statusLabels[order.status].color}`}>
+              {statusLabels[order.status].label}
+            </span>
           </div>
-          <div className="space-y-4">
-            {order.items_detail?.length ? (
-              order.items_detail.map((item) => (
-                <div key={item.product_id} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] items-center rounded-2xl border border-border bg-background p-4">
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">Quantidade: {item.quantity}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
-                  <p className="font-semibold">{formatCurrency(item.price * item.quantity)}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhum item detalhado disponível.</p>
-            )}
-          </div>
-        </div>
+        </motion.div>
 
-        <div className="rounded-3xl border bg-card p-6 shadow-sm flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Total do pedido</p>
-            <p className="text-2xl font-bold">{formatCurrency(order.total)}</p>
+        <div className="space-y-4">
+          {/* Summary + Delivery */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              {
+                title: "Resumo",
+                content: (
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>{order.items} {order.items === 1 ? 'item' : 'itens'}</p>
+                    <p>Total: <span className="font-bold text-foreground">{fmt(order.total)}</span></p>
+                    {order.shipping_cost !== undefined && (
+                      <p>Frete: <span className="text-foreground">{order.shipping_cost === 0 ? "Grátis" : fmt(order.shipping_cost)}</span></p>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                title: "Entrega",
+                content: (
+                  <div className="space-y-0.5 text-sm text-muted-foreground">
+                    <p>{order.shipping_street ?? "—"}, {order.shipping_number ?? "—"}</p>
+                    {order.shipping_complement && <p>{order.shipping_complement}</p>}
+                    <p>{order.shipping_city ?? "—"}, {order.shipping_state ?? "—"}</p>
+                    <p>CEP: {order.shipping_zipcode ?? "—"}</p>
+                  </div>
+                ),
+              },
+            ].map(({ title, content }) => (
+              <div key={title} className="rounded-2xl border border-border bg-card p-5">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{title}</p>
+                {content}
+              </div>
+            ))}
           </div>
-          <Button asChild>
-            <Link href="/meus-pedidos">Voltar para meus pedidos</Link>
-          </Button>
+
+          {/* Items */}
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Itens do pedido</p>
+            <div className="space-y-3">
+              {order.items_detail?.length ? (
+                order.items_detail.map((item) => (
+                  <div
+                    key={item.product_id}
+                    className="flex items-center justify-between gap-4 py-3 border-b border-border/60 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">{item.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.quantity}× {fmt(item.price)}</p>
+                    </div>
+                    <p className="font-semibold text-sm shrink-0">{fmt(item.price * item.quantity)}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum item detalhado disponível.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Total bar */}
+          <div className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total do pedido</p>
+              <p className="text-2xl font-bold mt-1">{fmt(order.total)}</p>
+            </div>
+            <Button asChild variant="outline" className="h-10 rounded-xl shrink-0">
+              <Link href="/meus-pedidos">Voltar para meus pedidos</Link>
+            </Button>
+          </div>
         </div>
       </div>
     </Layout>
