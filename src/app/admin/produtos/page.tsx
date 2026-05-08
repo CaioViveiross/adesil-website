@@ -10,19 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
-import type { Product, Category, BusinessCategory } from "@/types/supabase";
+import type { Product, Category } from "@/types/supabase";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [businessCategories, setBusinessCategories] = useState<BusinessCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -33,7 +34,6 @@ export default function AdminProductsPage() {
     image: "",
     category: "" as string | number,
     tags: "",
-    business_categories: [] as number[],
   });
 
   useEffect(() => {
@@ -42,19 +42,16 @@ export default function AdminProductsPage() {
 
   const fetchData = async () => {
     try {
-      const [productsRes, categoriesRes, businessRes] = await Promise.all([
+      const [productsRes, categoriesRes] = await Promise.all([
         fetch('/api/products?limit=100'),
-        fetch('/api/categories'),
-        fetch('/api/business-categories')
+        fetch('/api/categories')
       ]);
 
       const productsData = productsRes.ok ? await productsRes.json() : [];
       const categoriesData = categoriesRes.ok ? await categoriesRes.json() : [];
-      const businessData = businessRes.ok ? await businessRes.json() : [];
 
       setProducts(productsData);
       setCategories(categoriesData);
-      setBusinessCategories(businessData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -122,7 +119,6 @@ export default function AdminProductsPage() {
       price: parseFloat(formData.price),
       original_price: formData.original_price ? parseFloat(formData.original_price) : undefined,
       category: formData.category ? parseInt(formData.category.toString()) : undefined,
-      business_categories: formData.business_categories.map(id => typeof id === 'string' ? parseInt(id) : id),
     };
 
     try {
@@ -139,6 +135,9 @@ export default function AdminProductsPage() {
         await fetchData();
         setIsDialogOpen(false);
         resetForm();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData?.error || 'Erro ao salvar produto.');
       }
     } catch (error) {
       console.error('Error saving product:', error);
@@ -168,7 +167,6 @@ export default function AdminProductsPage() {
       image: product.image || "",
       category: product.category?.toString() || "",
       tags: product.tags || "",
-      business_categories: product.business_categories || [],
     });
     setIsDialogOpen(true);
   };
@@ -183,8 +181,38 @@ export default function AdminProductsPage() {
       image: "",
       category: "",
       tags: "",
-      business_categories: [] as number[],
     });
+  };
+
+  const handleToggleFeatured = async (product: Product, checked: boolean) => {
+    setTogglingFeaturedId(product.id);
+
+    try {
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_featured: checked }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData?.error || "Erro ao atualizar destaque.");
+        return;
+      }
+
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === product.id
+            ? { ...item, is_featured: checked }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Error toggling featured status:", error);
+      alert("Erro ao atualizar destaque.");
+    } finally {
+      setTogglingFeaturedId(null);
+    }
   };
 
   if (loading) {
@@ -311,34 +339,6 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              <div>
-                <Label>Categorias de Negócio</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {businessCategories.map((businessCat) => (
-                    <div key={businessCat.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`business-${businessCat.id}`}
-                        checked={formData.business_categories.includes(businessCat.id)}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setFormData(prev => ({
-                            ...prev,
-                            business_categories: checked
-                              ? [...prev.business_categories, businessCat.id]
-                              : prev.business_categories.filter(id => id !== businessCat.id)
-                          }));
-                        }}
-                        className="rounded"
-                      />
-                      <Label htmlFor={`business-${businessCat.id}`} className="text-sm">
-                        {businessCat.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
@@ -372,8 +372,8 @@ export default function AdminProductsPage() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead>Negócios</TableHead>
                 <TableHead>Preço</TableHead>
+                <TableHead>Destaque</TableHead>
                 <TableHead>Tags</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
               </TableRow>
@@ -385,23 +385,14 @@ export default function AdminProductsPage() {
                   <TableCell>
                     {categories.find(c => c.id === product.category)?.name || 'N/A'}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {product.business_categories && product.business_categories.length > 0 ? (
-                        product.business_categories.map(businessId => {
-                          const businessCat = businessCategories.find(bc => bc.id === businessId);
-                          return businessCat ? (
-                            <Badge key={businessId} variant="outline" className="text-xs">
-                              {businessCat.name}
-                            </Badge>
-                          ) : null;
-                        })
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Nenhum</span>
-                      )}
-                    </div>
-                  </TableCell>
                   <TableCell>R$ {product.price.toFixed(2).replace(".", ",")}</TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={Boolean(product.is_featured)}
+                      onCheckedChange={(checked) => handleToggleFeatured(product, checked)}
+                      aria-label={`Alternar destaque do produto ${product.name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       {product.tags && <Badge variant="secondary">{product.tags}</Badge>}

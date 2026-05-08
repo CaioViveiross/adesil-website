@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import type { Product, Category, Order, BusinessCategory } from '@/types/supabase';
 
 // Hook para buscar produtos
-export function useProducts(category?: string, businessCategory?: string, limit = 20) {
+export function useProducts(category?: string, limit = 20) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,6 @@ export function useProducts(category?: string, businessCategory?: string, limit 
       try {
         const params = new URLSearchParams({ limit: limit.toString() });
         if (category) params.set('category', category);
-        if (businessCategory) params.set('business_category', businessCategory);
 
         const response = await fetch(`/api/products?${params}`);
         if (!response.ok) throw new Error('Failed to fetch products');
@@ -28,7 +27,7 @@ export function useProducts(category?: string, businessCategory?: string, limit 
     };
 
     fetchProducts();
-  }, [category, businessCategory, limit]);
+  }, [category, limit]);
 
   return { products, loading, error };
 }

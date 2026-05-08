@@ -15,6 +15,16 @@ export interface BusinessCategory {
   image?: string;
 }
 
+// Contact messages
+export interface ContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  created_at?: string;
+}
+
 // Products
 export interface Product {
   id: string;
@@ -24,16 +34,8 @@ export interface Product {
   original_price?: number;
   image?: string;
   category?: number;
+  is_featured?: boolean;
   tags?: string;
-  business_categories?: number[]; // Array de IDs de categorias de negócio
-  created_at?: string;
-}
-
-// Product Business Category relation (many-to-many)
-export interface ProductBusinessCategory {
-  id: string;
-  product_id: string;
-  business_category_id: string;
   created_at?: string;
 }
 
