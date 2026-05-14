@@ -1,124 +1,82 @@
-const ABACATEPAY_API_BASE_URL = process.env.ABACATEPAY_API_BASE_URL || "https://api.abacatepay.com/v1";
+const ABACATEPAY_API_BASE_URL = "https://api.abacatepay.com/v2";
 const ABACATEPAY_API_KEY = process.env.ABACATEPAY_API_KEY;
 
-export interface AbacatePayCreateBillingPayload {
-  frequency: "ONE_TIME";
-  methods: Array<"PIX" | "CREDIT_CARD">;
-  products: Array<{
-    externalId: string;
-    name: string;
-    description?: string;
-    quantity: number;
-    price: number;
-  }>;
-  returnUrl?: string;
-  completionUrl?: string;
+export interface AbacatePayCheckoutProduct {
+  externalId: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  price: number; // em centavos
+}
+
+export interface AbacatePayCheckoutPayload {
+  products: AbacatePayCheckoutProduct[];
+  methods?: Array<"PIX" | "CARD">;
   customer: {
     name: string;
     email: string;
     cellphone?: string;
     taxId?: string;
   };
+  externalId?: string;
+  returnUrl?: string;
+  completionUrl?: string;
+  card?: {
+    maxInstallments?: number;
+  };
   metadata?: Record<string, string>;
 }
 
-export interface AbacatePayBillingResponse {
-  raw: unknown;
-  billingId?: string;
-  paymentUrl?: string;
-  pixQrCode?: string;
-  pixCopyPaste?: string;
-  status?: string;
-}
-
-function getNestedValue(source: unknown, paths: string[]): string | undefined {
-  if (!source || typeof source !== "object") return undefined;
-
-  for (const path of paths) {
-    const value = path.split(".").reduce<unknown>((acc, key) => {
-      if (!acc || typeof acc !== "object") return undefined;
-      return (acc as Record<string, unknown>)[key];
-    }, source);
-
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  return undefined;
+export interface AbacatePayCheckoutResponse {
+  id: string;
+  url: string;
+  status: string;
+  amount: number;
+  devMode: boolean;
 }
 
 export function getAbacatePayConfig() {
-  return {
-    apiBaseUrl: ABACATEPAY_API_BASE_URL,
-    apiKey: ABACATEPAY_API_KEY,
-  };
+  return { apiKey: ABACATEPAY_API_KEY };
 }
 
-export async function createAbacatePayBilling(payload: AbacatePayCreateBillingPayload): Promise<AbacatePayBillingResponse> {
+export async function createAbacatePayCheckout(
+  payload: AbacatePayCheckoutPayload
+): Promise<AbacatePayCheckoutResponse> {
   if (!ABACATEPAY_API_KEY) {
     throw new Error("ABACATEPAY_API_KEY não configurada");
   }
 
-  const response = await fetch(`${ABACATEPAY_API_BASE_URL}/billing/create`, {
+  const response = await fetch(`${ABACATEPAY_API_BASE_URL}/checkouts/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${ABACATEPAY_API_KEY}`,
-      "x-api-key": ABACATEPAY_API_KEY,
     },
     body: JSON.stringify(payload),
     cache: "no-store",
   });
 
-  const responseText = await response.text();
-  let data: unknown = null;
-
+  let data: unknown;
   try {
-    data = responseText ? JSON.parse(responseText) : null;
+    data = await response.json();
   } catch {
-    data = responseText;
+    throw new Error(`AbacatePay: resposta inválida (HTTP ${response.status})`);
   }
 
   if (!response.ok) {
-    throw new Error(`Erro ao criar cobrança no Abacate Pay (${response.status}): ${JSON.stringify(data)}`);
+    throw new Error(
+      `AbacatePay checkout error (${response.status}): ${JSON.stringify(data)}`
+    );
   }
 
-  const billingId = getNestedValue(data, ["id", "data.id", "billing.id", "data.billing.id"]);
-  const paymentUrl = getNestedValue(data, [
-    "url",
-    "data.url",
-    "checkoutUrl",
-    "data.checkoutUrl",
-    "paymentUrl",
-    "data.paymentUrl",
-    "billing.url",
-    "data.billing.url",
-  ]);
-  const pixQrCode = getNestedValue(data, [
-    "pix.qrCode",
-    "data.pix.qrCode",
-    "pix.qrCodeImage",
-    "data.pix.qrCodeImage",
-    "qrCode",
-    "data.qrCode",
-  ]);
-  const pixCopyPaste = getNestedValue(data, [
-    "pix.copyPaste",
-    "data.pix.copyPaste",
-    "pix.emv",
-    "data.pix.emv",
-    "pixCode",
-    "data.pixCode",
-  ]);
-  const status = getNestedValue(data, ["status", "data.status", "billing.status", "data.billing.status"]);
+  // A API retorna { data: { id, url, status, amount, devMode }, success, error }
+  const checkout = ((data as Record<string, unknown>).data ?? data) as Record<string, unknown>;
 
   return {
-    raw: data,
-    billingId,
-    paymentUrl,
-    pixQrCode,
-    pixCopyPaste,
-    status,
+    id: String(checkout.id ?? ""),
+    url: String(checkout.url ?? ""),
+    status: String(checkout.status ?? "PENDING"),
+    amount: Number(checkout.amount ?? 0),
+    devMode: Boolean(checkout.devMode ?? false),
   };
 }

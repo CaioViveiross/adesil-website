@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabaseServer";
-import type { Profile, UserRole, LabelFont, LabelColor } from "@/types/supabase";
-
+import type { Profile } from "@/types/supabase";
 
 // ==================== PROFILES (AUTH INTEGRATION) ====================
 
@@ -13,18 +12,6 @@ export async function getCurrentProfile() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function getProfileById(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", id)
     .single();
 
   if (error) throw error;
@@ -56,30 +43,6 @@ export async function updateProfile(id: string, updates: Partial<Profile>) {
   return data;
 }
 
-export async function updateProfileRole(id: string, role: UserRole) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({ role })
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteProfile(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw error;
-  return true;
-}
-
 // ==================== AUTH HELPERS ====================
 
 export async function signIn(email: string, password: string) {
@@ -99,9 +62,7 @@ export async function signUp(email: string, password: string, name: string) {
     email,
     password,
     options: {
-      data: {
-        name,
-      },
+      data: { name },
     },
   });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signIn, signUp, signOut, resetPassword } from "@/lib/supabase/auth";
+import { signIn } from "@/lib/supabase/auth";
 
 // POST /api/auth/signin - Login
 export async function POST(request: NextRequest) {

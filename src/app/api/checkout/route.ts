@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrder } from "@/lib/supabase/orders";
 import { getCurrentProfile, updateProfile } from "@/lib/supabase/auth";
-import { createAbacatePayBilling, getAbacatePayConfig } from "@/lib/abacatePay";
+import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
 import type { Order } from "@/types/supabase";
 
 export async function POST(request: NextRequest) {
@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
 
     const profile = await getCurrentProfile();
     if (!profile) {
-      return NextResponse.json(
-        { error: "Usuário não autenticado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Usuário não autenticado" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -73,13 +70,7 @@ export async function POST(request: NextRequest) {
     const { apiKey } = getAbacatePayConfig();
     if (!apiKey) {
       return NextResponse.json(
-        {
-          order,
-          payment: {
-            provider: "abacatepay",
-            pending_configuration: true,
-          },
-        },
+        { order, payment: { provider: "abacatepay", pending_configuration: true } },
         { status: 201 }
       );
     }
@@ -90,25 +81,26 @@ export async function POST(request: NextRequest) {
       const normalizedPhone = typeof phone === "string" ? phone.replace(/\D/g, "") : undefined;
       const normalizedTaxId = typeof document === "string" ? document.replace(/\D/g, "") : undefined;
 
-      const billing = await createAbacatePayBilling({
-        frequency: "ONE_TIME",
-        methods: ["PIX"],
+      const checkout = await createAbacatePayCheckout({
         products: safeItems.map((item: { product_id: string; name: string; quantity: number; price: number }) => ({
           externalId: String(item.product_id),
           name: item.name,
           quantity: item.quantity,
           price: Math.round(item.price * 100),
         })),
+        methods: ["PIX", "CARD"],
         customer: {
           name: customerName,
           email: profile.email,
           cellphone: normalizedPhone,
           taxId: normalizedTaxId,
         },
-        returnUrl: `${appBaseUrl}/checkout?payment=cancelled`,
+        externalId: String(order.id),
+        returnUrl: `${appBaseUrl}/carrinho`,
         completionUrl: `${appBaseUrl}/meus-pedidos/${order.id}?payment=success`,
+        card: { maxInstallments: 12 },
         metadata: {
-          order_id: order.id,
+          order_id: String(order.id),
           source: "adesil-web-checkout",
         },
       });
@@ -118,33 +110,28 @@ export async function POST(request: NextRequest) {
           order,
           payment: {
             provider: "abacatepay",
-            billing_id: billing.billingId,
-            status: billing.status,
-            payment_url: billing.paymentUrl,
-            pix_qr_code: billing.pixQrCode,
-            pix_copy_paste: billing.pixCopyPaste,
+            checkout_id: checkout.id,
+            checkout_url: checkout.url,
+            status: checkout.status,
           },
         },
         { status: 201 }
       );
     } catch (paymentError) {
-      console.error("Error creating Abacate Pay billing:", paymentError);
+      console.error("AbacatePay checkout error:", paymentError);
       return NextResponse.json(
         {
           order,
           payment: {
             provider: "abacatepay",
-            error: "Falha ao gerar pagamento no Abacate Pay",
+            error: "Falha ao gerar pagamento no Abacate Pay. Pedido criado — entre em contato para regularizar.",
           },
         },
         { status: 201 }
       );
     }
   } catch (error) {
-    console.error("Error creating checkout order:", error);
-    return NextResponse.json(
-      { error: "Failed to create checkout order" },
-      { status: 500 }
-    );
+    console.error("Checkout route error:", error);
+    return NextResponse.json({ error: "Falha ao criar pedido" }, { status: 500 });
   }
 }

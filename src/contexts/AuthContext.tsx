@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import type { Profile } from '@/types/supabase';
 
 interface AuthContextType {
@@ -10,6 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,6 +98,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const signInWithGoogle = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+  };
+
   useEffect(() => {
     refreshProfile().finally(() => setLoading(false));
   }, []);
@@ -107,6 +117,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signUp,
     signOut,
     refreshProfile,
+    signInWithGoogle,
   };
 
   return (

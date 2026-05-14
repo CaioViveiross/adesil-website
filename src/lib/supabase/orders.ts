@@ -41,18 +41,6 @@ export async function getOrderById(id: string) {
   return data;
 }
 
-export async function getOrdersByCustomer(customerName: string) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .ilike("customer", `%${customerName}%`)
-    .order("date", { ascending: false });
-
-  if (error) throw error;
-  return data;
-}
-
 export async function createOrder(order: Omit<Order, "id" | "created_at">) {
   const supabase = await getSupabase();
   const orderPayload = {
@@ -133,18 +121,6 @@ export async function getClientById(id: string) {
   return data;
 }
 
-export async function getClientByEmail(email: string) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("email", email)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
 export async function createClientRecord(client: Omit<Client, "id" | "created_at">) {
   const supabase = await getSupabase();
   const { data, error } = await supabase
@@ -171,6 +147,7 @@ export async function updateClient(id: string, updates: Partial<Client>) {
 }
 
 export async function deleteClient(id: string) {
+  const supabase = await getSupabase();
   const { error } = await supabase
     .from("clients")
     .delete()

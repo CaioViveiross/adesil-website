@@ -17,7 +17,6 @@ export default function ProductPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [customization] = useState<{ text: string; color: string; font: string } | undefined>();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -154,7 +153,7 @@ export default function ProductPage() {
 
             <Button
               className="w-full h-12 rounded-xl font-semibold text-base gap-2"
-              onClick={() => addItem(product, quantity, customization)}
+              onClick={() => addItem(product, quantity)}
             >
               <ShoppingCart className="h-5 w-5" />
               Adicionar ao carrinho

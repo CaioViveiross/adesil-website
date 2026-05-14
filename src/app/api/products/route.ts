@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 
-async function getFeaturedProductsCount(supabase: any) {
+async function getFeaturedProductsCount(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { count, error } = await supabase
     .from("products")
     .select("id", { count: "exact", head: true })

@@ -5,10 +5,10 @@ import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
-import { CheckCircle2, Package } from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { Package, CreditCard, QrCode, ExternalLink, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { lookupCep } from "@/lib/viaCep";
 import { motion } from "framer-motion";
@@ -34,16 +34,18 @@ const initialFormState: CheckoutForm = {
 };
 
 const isCnpj = (value: string) => value.replace(/\D/g, "").length === 14;
-
 const fieldClass = "h-11 rounded-xl text-sm";
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const { items, total, discount, clearCart } = useCart();
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentParam = searchParams.get("payment");
+
   const [formData, setFormData] = useState<CheckoutForm>(initialFormState);
-  const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [zipError, setZipError] = useState("");
   const [addressLookupPending, setAddressLookupPending] = useState(false);
   const [lastFetchedZip, setLastFetchedZip] = useState("");
@@ -109,32 +111,61 @@ export default function CheckoutPage() {
       toast({ title: "Carrinho vazio", description: "Adicione produtos antes de finalizar.", variant: "destructive" });
       return;
     }
+
     setSaving(true);
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer_name: formData.customer_name, document: formData.document,
-          company_name: formData.company_name, shipping_zipcode: formData.shipping_zipcode,
-          shipping_street: formData.shipping_street, shipping_number: formData.shipping_number,
-          shipping_complement: formData.shipping_complement, shipping_city: formData.shipping_city,
-          shipping_state: formData.shipping_state, shipping_country: "BR",
+          customer_name: formData.customer_name,
+          document: formData.document,
+          company_name: formData.company_name,
+          phone: formData.phone,
+          shipping_zipcode: formData.shipping_zipcode,
+          shipping_street: formData.shipping_street,
+          shipping_number: formData.shipping_number,
+          shipping_complement: formData.shipping_complement,
+          shipping_city: formData.shipping_city,
+          shipping_state: formData.shipping_state,
+          shipping_country: "BR",
           items: items.reduce((sum, item) => sum + item.quantity, 0),
-          total: finalTotal, shipping_cost: shipping,
+          total: finalTotal,
+          shipping_cost: shipping,
           items_detail: items.map((item) => ({
-            product_id: item.product.id, name: item.product.name,
-            quantity: item.quantity, price: item.product.price,
+            product_id: item.product.id,
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price,
           })),
         }),
       });
+
       if (!response.ok) {
         const error = await response.json();
         toast({ title: "Erro", description: error?.error || "Falha ao finalizar a compra.", variant: "destructive" });
         return;
       }
-      setSubmitted(true);
+
+      const result = await response.json();
+      const checkoutUrl = result?.payment?.checkout_url;
+
+      if (checkoutUrl) {
+        clearCart();
+        setRedirecting(true);
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      // AbacatePay não configurada ou falhou — pedido criado sem pagamento online
+      if (result?.payment?.pending_configuration || result?.payment?.error) {
+        clearCart();
+        router.push(`/meus-pedidos/${result.order.id}?payment=pending`);
+        return;
+      }
+
       clearCart();
+      router.push(`/meus-pedidos/${result.order?.id ?? ""}`);
     } catch {
       toast({ title: "Erro", description: "Não foi possível finalizar a compra.", variant: "destructive" });
     } finally {
@@ -171,26 +202,19 @@ export default function CheckoutPage() {
     );
   }
 
-  if (submitted) {
+  if (redirecting) {
     return (
       <Layout>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="container py-20 md:py-28 flex flex-col items-center text-center gap-5 max-w-md mx-auto"
-        >
-          <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+        <div className="container py-20 md:py-28 flex flex-col items-center text-center gap-5 max-w-md mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center">
+            <ExternalLink className="h-7 w-7 text-primary animate-pulse" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight">Pedido realizado!</h1>
-            <p className="text-muted-foreground text-sm">Seu pedido foi recebido com sucesso. Você receberá um e-mail de confirmação em breve.</p>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">Redirecionando para o pagamento…</h1>
+            <p className="text-muted-foreground text-sm">Você será levado à página segura do AbacatePay para concluir o pagamento via Pix ou Cartão.</p>
           </div>
-          <Button className="h-11 px-6 rounded-xl font-semibold" onClick={() => router.push("/meus-pedidos")}>
-            Ver meus pedidos
-          </Button>
-        </motion.div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+        </div>
       </Layout>
     );
   }
@@ -202,6 +226,18 @@ export default function CheckoutPage() {
           <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Compra</span>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Checkout</h1>
         </div>
+
+        {/* Aviso de pagamento cancelado */}
+        {paymentParam === "cancelled" && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>Pagamento cancelado. Seus dados foram salvos — preencha novamente e tente outra vez.</span>
+          </motion.div>
+        )}
 
         <div className="grid md:grid-cols-5 gap-8 items-start">
           <form className="md:col-span-3 space-y-6" onSubmit={handleSubmit}>
@@ -228,13 +264,12 @@ export default function CheckoutPage() {
                     <Input className={fieldClass} placeholder="CPF ou CNPJ" required value={formData.document} onChange={(e) => handleChange("document", e.target.value)} />
                   </div>
                 </div>
-                {isDocumentCnpj && (
+                {isDocumentCnpj ? (
                   <div className="space-y-1.5">
                     <Label className="text-sm">Razão Social <span className="text-destructive">*</span></Label>
                     <Input className={fieldClass} placeholder="Razão social" required value={formData.company_name} onChange={(e) => handleChange("company_name", e.target.value)} />
                   </div>
-                )}
-                {!isDocumentCnpj && (
+                ) : (
                   <div className="space-y-1.5">
                     <Label className="text-sm text-muted-foreground">Empresa (opcional)</Label>
                     <Input className={fieldClass} placeholder="Nome da empresa" value={formData.company_name} onChange={(e) => handleChange("company_name", e.target.value)} />
@@ -280,8 +315,31 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11 rounded-xl font-semibold" disabled={saving}>
-              {saving ? "Processando..." : `Finalizar Compra — R$ ${finalTotal.toFixed(2).replace(".", ",")}`}
+            {/* Métodos de Pagamento (informativo) */}
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
+              <h2 className="font-semibold text-base">Pagamento</h2>
+              <p className="text-sm text-muted-foreground">Você escolherá o método na próxima etapa, na página segura do AbacatePay.</p>
+              <div className="flex gap-3">
+                <div className="flex-1 flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                  <QrCode className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">Pix</span>
+                  <span className="ml-auto text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Instantâneo</span>
+                </div>
+                <div className="flex-1 flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                  <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">Cartão</span>
+                  <span className="ml-auto text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">até 12×</span>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-12 rounded-xl font-semibold text-base gap-2"
+              disabled={saving || redirecting}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {saving ? "Criando pedido…" : `Ir para o Pagamento — R$ ${finalTotal.toFixed(2).replace(".", ",")}`}
             </Button>
           </form>
 
@@ -315,9 +373,20 @@ export default function CheckoutPage() {
                 <span>Total</span><span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground text-center pt-1">
+              🔒 Pagamento processado com segurança pelo AbacatePay
+            </p>
           </div>
         </div>
       </div>
     </Layout>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense>
+      <CheckoutContent />
+    </Suspense>
   );
 }

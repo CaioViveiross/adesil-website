@@ -1,11 +1,11 @@
 'use client';
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Package, Clock } from "lucide-react";
 import { parseOrderDate } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { statusLabels } from "@/types/supabase";
@@ -15,8 +15,10 @@ import { motion } from "framer-motion";
 const fmt = (value?: number) =>
   value !== undefined ? `R$ ${value.toFixed(2).replace(".", ",")}` : "R$ 0,00";
 
-export default function MyOrderDetailPage() {
+function MyOrderDetailContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const paymentParam = searchParams.get("payment");
   const { user, loading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
@@ -37,7 +39,7 @@ export default function MyOrderDetailPage() {
         } else {
           setOrder(data);
         }
-      } catch (err) {
+      } catch {
         setError("Não foi possível carregar os detalhes do pedido.");
       } finally {
         setLoadingOrder(false);
@@ -99,6 +101,36 @@ export default function MyOrderDetailPage() {
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
             Voltar aos pedidos
           </Link>
+
+          {/* Banner de pagamento confirmado */}
+          {paymentParam === "success" && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+            >
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-emerald-800 text-sm">Pagamento recebido com sucesso!</p>
+                <p className="text-emerald-700 text-xs mt-0.5">Seu pedido está sendo processado. Acompanhe o status abaixo.</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Banner de pagamento pendente (sem AbacatePay configurado) */}
+          {paymentParam === "pending" && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <Clock className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-800 text-sm">Pedido criado — aguardando pagamento</p>
+                <p className="text-amber-700 text-xs mt-0.5">Entre em contato para regularizar o pagamento deste pedido.</p>
+              </div>
+            </motion.div>
+          )}
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8">
             <div>
@@ -185,5 +217,13 @@ export default function MyOrderDetailPage() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+export default function MyOrderDetailPage() {
+  return (
+    <Suspense>
+      <MyOrderDetailContent />
+    </Suspense>
   );
 }
