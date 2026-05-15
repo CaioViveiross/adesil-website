@@ -12,13 +12,13 @@ import { lookupCep } from '@/lib/viaCep';
 import { motion } from 'framer-motion';
 
 interface AddressForm {
-  name: string; email: string; document: string; company_name: string;
+  name: string; email: string; phone: string; document: string; company_name: string;
   shipping_zipcode: string; shipping_street: string; shipping_number: string;
   shipping_complement: string; shipping_city: string; shipping_state: string;
 }
 
 const initialForm: AddressForm = {
-  name: '', email: '', document: '', company_name: '',
+  name: '', email: '', phone: '', document: '', company_name: '',
   shipping_zipcode: '', shipping_street: '', shipping_number: '',
   shipping_complement: '', shipping_city: '', shipping_state: '',
 };
@@ -38,7 +38,7 @@ export default function MeuEnderecoPage() {
     if (!loading && !user) { router.push('/auth'); return; }
     if (user) {
       setForm({
-        name: user.name || '', email: user.email || '',
+        name: user.name || '', email: user.email || '', phone: user.phone || '',
         document: user.document || '', company_name: user.company_name || '',
         shipping_zipcode: user.shipping_zipcode || '',
         shipping_street: user.shipping_street || '',
@@ -85,7 +85,7 @@ export default function MeuEnderecoPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: form.name, document: form.document, company_name: form.company_name,
+          name: form.name, phone: form.phone, document: form.document, company_name: form.company_name,
           shipping_zipcode: form.shipping_zipcode, shipping_street: form.shipping_street,
           shipping_number: form.shipping_number, shipping_complement: form.shipping_complement,
           shipping_city: form.shipping_city, shipping_state: form.shipping_state,
@@ -148,9 +148,15 @@ export default function MeuEnderecoPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
+                <Label htmlFor="phone" className="text-sm">Telefone</Label>
+                <Input id="phone" className={fieldClass} type="tel" placeholder="(11) 00000-0000" value={form.phone} onChange={(e) => handleChange('phone', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="document" className="text-sm">CPF ou CNPJ</Label>
                 <Input id="document" className={fieldClass} value={form.document} onChange={(e) => handleChange('document', e.target.value)} required />
               </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="company_name" className="text-sm text-muted-foreground">Empresa (opcional)</Label>
                 <Input id="company_name" className={fieldClass} value={form.company_name} onChange={(e) => handleChange('company_name', e.target.value)} />

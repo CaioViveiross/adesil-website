@@ -5,6 +5,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag } from "lucide-react";
+import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 export default function CartPage() {
@@ -72,7 +73,12 @@ export default function CartPage() {
                       <p className="text-xs text-primary mt-0.5">Personalizado: "{item.customization.text}"</p>
                     )}
                   </div>
-                  <p className="text-base font-bold">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-base font-bold">R$ {salePrice(item.product).toFixed(2).replace(".", ",")}</p>
+                    {!!item.product.discount && (
+                      <p className="text-xs text-muted-foreground line-through">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center border border-border rounded-xl overflow-hidden">
                       <button

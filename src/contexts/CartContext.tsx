@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { salePrice } from "@/lib/utils";
 import type { Product } from "@/types/supabase";
 
 export interface CartItem {
@@ -80,7 +81,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [coupon]);
 
-  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const total = items.reduce((sum, i) => sum + salePrice(i.product) * i.quantity, 0);
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (

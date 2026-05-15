@@ -8,6 +8,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Minus, Plus, ChevronLeft, Shield, Truck, Package } from "lucide-react";
 import type { Product } from "@/types/supabase";
+import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 export default function ProductPage() {
@@ -75,7 +76,7 @@ export default function ProductPage() {
     <Layout>
       <div className="container py-12 md:py-20">
         <Link
-          href={`/categoria/${product.category}`}
+          href={`/categoria/${product.category_id}`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 group"
         >
           <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -104,10 +105,14 @@ export default function ProductPage() {
             transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-6 pt-1"
           >
-            {product.tags && (
-              <span className="inline-block bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
-                {product.tags}
-              </span>
+            {Array.isArray(product.tags) && product.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {product.tags.map(tag => (
+                  <span key={tag} className="inline-block bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             )}
 
             <div className="space-y-2">
@@ -118,16 +123,16 @@ export default function ProductPage() {
             </div>
 
             <div className="space-y-1">
-              {product.original_price && (
+              {!!product.discount && (
                 <p className="text-sm text-muted-foreground line-through">
-                  R$ {product.original_price.toFixed(2).replace(".", ",")}
+                  R$ {product.price.toFixed(2).replace(".", ",")}
                 </p>
               )}
               <p className="text-3xl font-bold text-foreground">
-                R$ {product.price.toFixed(2).replace(".", ",")}
+                R$ {salePrice(product).toFixed(2).replace(".", ",")}
               </p>
               <p className="text-xs text-muted-foreground">
-                ou 3× de R$ {(product.price / 3).toFixed(2).replace(".", ",")} sem juros
+                ou 3× de R$ {(salePrice(product) / 3).toFixed(2).replace(".", ",")} sem juros
               </p>
             </div>
 

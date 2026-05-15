@@ -30,9 +30,9 @@ export default function AdminProductsPage() {
     name: "",
     description: "",
     price: "",
-    original_price: "",
+    discount: "0",
     image: "",
-    category: "" as string | number,
+    category_id: "" as string | number,
     tags: "",
   });
 
@@ -106,7 +106,7 @@ export default function AdminProductsPage() {
   };
 
   const filteredProducts = products.filter(product => {
-    const categoryName = categories.find(c => c.id === product.category)?.name || '';
+    const categoryName = categories.find(c => c.id === product.category_id)?.name || '';
     return product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            categoryName.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -117,8 +117,9 @@ export default function AdminProductsPage() {
     const productData = {
       ...formData,
       price: parseFloat(formData.price),
-      original_price: formData.original_price ? parseFloat(formData.original_price) : undefined,
-      category: formData.category ? parseInt(formData.category.toString()) : undefined,
+      discount: parseInt(formData.discount || "0", 10),
+      category_id: formData.category_id ? parseInt(formData.category_id.toString()) : undefined,
+      tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     };
 
     try {
@@ -163,10 +164,10 @@ export default function AdminProductsPage() {
       name: product.name,
       description: product.description || "",
       price: product.price.toString(),
-      original_price: product.original_price?.toString() || "",
+      discount: (product.discount ?? 0).toString(),
       image: product.image || "",
-      category: product.category?.toString() || "",
-      tags: product.tags || "",
+      category_id: product.category_id?.toString() || "",
+      tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
     });
     setIsDialogOpen(true);
   };
@@ -177,9 +178,9 @@ export default function AdminProductsPage() {
       name: "",
       description: "",
       price: "",
-      original_price: "",
+      discount: "0",
       image: "",
-      category: "",
+      category_id: "",
       tags: "",
     });
   };
@@ -254,7 +255,7 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category.toString()} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
@@ -281,27 +282,41 @@ export default function AdminProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="price">Preço *</Label>
+                  <Label htmlFor="price">Preço (R$) *</Label>
                   <Input
                     id="price"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="original_price">Preço Original</Label>
+                  <Label htmlFor="discount">Desconto (%)</Label>
                   <Input
-                    id="original_price"
+                    id="discount"
                     type="number"
-                    step="0.01"
-                    value={formData.original_price}
-                    onChange={(e) => setFormData({ ...formData, original_price: e.target.value })}
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={formData.discount}
+                    onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
                   />
                 </div>
               </div>
+              {Number(formData.discount) > 0 && Number(formData.price) > 0 && (
+                <p className="text-sm text-muted-foreground -mt-2">
+                  Preço final:{" "}
+                  <span className="font-semibold text-foreground">
+                    R$ {(Number(formData.price) * (1 - Number(formData.discount) / 100)).toFixed(2).replace(".", ",")}
+                  </span>
+                  <span className="ml-2 line-through">
+                    R$ {Number(formData.price).toFixed(2).replace(".", ",")}
+                  </span>
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -330,9 +345,10 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="tags">Tags</Label>
+                  <Label htmlFor="tags">Tags <span className="text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
                   <Input
                     id="tags"
+                    placeholder="ex: ribbon, adesivo, couche"
                     value={formData.tags}
                     onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   />
@@ -383,9 +399,18 @@ export default function AdminProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
-                    {categories.find(c => c.id === product.category)?.name || 'N/A'}
+                    {categories.find(c => c.id === product.category_id)?.name || 'N/A'}
                   </TableCell>
-                  <TableCell>R$ {product.price.toFixed(2).replace(".", ",")}</TableCell>
+                  <TableCell>
+                    {product.discount ? (
+                      <div className="flex flex-col leading-tight">
+                        <span>R$ {(product.price * (1 - product.discount / 100)).toFixed(2).replace(".", ",")}</span>
+                        <span className="text-xs text-muted-foreground line-through">R$ {product.price.toFixed(2).replace(".", ",")} (−{product.discount}%)</span>
+                      </div>
+                    ) : (
+                      `R$ ${product.price.toFixed(2).replace(".", ",")}`
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Switch
                       checked={Boolean(product.is_featured)}
@@ -395,7 +420,9 @@ export default function AdminProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {product.tags && <Badge variant="secondary">{product.tags}</Badge>}
+                      {(Array.isArray(product.tags) ? product.tags : []).map(tag => (
+                        <Badge key={tag} variant="secondary">{tag}</Badge>
+                      ))}
                     </div>
                   </TableCell>
                   <TableCell>

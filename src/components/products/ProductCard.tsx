@@ -5,6 +5,7 @@ import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/types/supabase";
+import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
@@ -39,10 +40,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300" />
 
-        {product.tags && (
-          <span className="absolute top-3 left-3 bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm">
-            {product.tags}
-          </span>
+        {Array.isArray(product.tags) && product.tags.length > 0 && (
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1">
+            {product.tags.map(tag => (
+              <span key={tag} className="bg-primary text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm">
+                {tag}
+              </span>
+            ))}
+          </div>
         )}
       </Link>
 
@@ -58,11 +63,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-bold text-foreground leading-none">
-            R$ {product.price.toFixed(2).replace(".", ",")}
+            R$ {salePrice(product).toFixed(2).replace(".", ",")}
           </span>
-          {product.original_price && (
+          {!!product.discount && (
             <span className="text-xs text-muted-foreground line-through leading-none">
-              R$ {product.original_price.toFixed(2).replace(".", ",")}
+              R$ {product.price.toFixed(2).replace(".", ",")}
             </span>
           )}
         </div>

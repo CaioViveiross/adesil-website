@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabaseServer";
-import type { Order, Client, OrderStatus } from "@/types/supabase";
+import type { Order, OrderItem, Client, OrderStatus } from "@/types/supabase";
 
 async function getSupabase() {
   return await createClient();
@@ -12,7 +12,7 @@ export async function getOrders(limit = 50, offset = 0, status?: OrderStatus, cu
   let query = supabase
     .from("orders")
     .select("*")
-    .order("date", { ascending: false })
+    .order("ordered_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (status) {
@@ -41,11 +41,11 @@ export async function getOrderById(id: string) {
   return data;
 }
 
-export async function createOrder(order: Omit<Order, "id" | "created_at">) {
+export async function createOrder(order: Omit<Order, "id" | "created_at" | "updated_at">) {
   const supabase = await getSupabase();
   const orderPayload = {
     ...order,
-    date: order.date || new Date().toISOString(),
+    ordered_at: order.ordered_at || new Date().toISOString(),
   };
 
   const { data, error } = await supabase
@@ -82,6 +82,18 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
 
   if (error) throw error;
   return data;
+}
+
+export async function getOrderItems(orderId: string): Promise<OrderItem[]> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from("order_items")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as OrderItem[];
 }
 
 export async function deleteOrder(id: string) {

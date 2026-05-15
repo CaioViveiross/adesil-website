@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { BusinessCategory } from "@/types/supabase";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -58,8 +59,9 @@ const BusinessCategories = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-30px" }}
                   transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="group relative rounded-2xl overflow-hidden aspect-[4/3] cursor-pointer bg-muted"
+                  className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-muted"
                 >
+                  <Link href={`/categoria/todos`} className="absolute inset-0 z-10" aria-label={cat.name} />
                   {/* Image */}
                   <img
                     src={cat.image}

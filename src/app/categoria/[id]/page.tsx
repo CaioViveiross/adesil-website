@@ -6,6 +6,7 @@ import Layout from "@/components/layout/Layout";
 import ProductCard from "@/components/products/ProductCard";
 import { Package } from "lucide-react";
 import type { Product, Category } from "@/types/supabase";
+import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const sortOptions = [
@@ -57,11 +58,11 @@ export default function CategoryPage() {
   }, [id]);
 
   const category = categories.find((c) => c.id === categoryId);
-  const filtered = id === "todos" ? products : products.filter((p) => p.category === categoryId);
+  const filtered = id === "todos" ? products : products.filter((p) => p.category_id === categoryId);
   const sorted = [...filtered].sort((a, b) => {
     switch (sort) {
-      case "price-asc": return (a.price || 0) - (b.price || 0);
-      case "price-desc": return (b.price || 0) - (a.price || 0);
+      case "price-asc": return salePrice(a) - salePrice(b);
+      case "price-desc": return salePrice(b) - salePrice(a);
       case "name": return (a.name || "").localeCompare(b.name || "");
       default: return 0;
     }

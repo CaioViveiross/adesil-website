@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
+import { syncProductToAbacatePay } from "@/lib/abacatePay";
 
 async function getFeaturedProductsCount(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { count, error } = await supabase
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
         if (Number.isNaN(categoryId)) {
           return NextResponse.json([], { status: 200 });
         }
-        featuredQuery = featuredQuery.eq("category", categoryId);
+        featuredQuery = featuredQuery.eq("category_id", categoryId);
       }
 
       const { data: featuredProducts, error: featuredError } = await featuredQuery;
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
         .limit(Math.max(limit * 10, 40));
 
       if (categoryParam) {
-        recentQuery = recentQuery.eq("category", categoryId);
+        recentQuery = recentQuery.eq("category_id", categoryId);
       }
 
       const { data: recentProducts, error: recentError } = await recentQuery;
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       if (Number.isNaN(categoryId)) {
         return NextResponse.json([], { status: 200 });
       }
-      query = query.eq("category", categoryId);
+      query = query.eq("category_id", categoryId);
     }
 
     const { data, error } = await query.range(offset, offset + limit - 1);
@@ -132,12 +133,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (productData.category !== undefined && productData.category !== null) {
-      const parsedCategory = parseInt(productData.category.toString(), 10);
+    if (productData.category_id !== undefined && productData.category_id !== null) {
+      const parsedCategory = parseInt(productData.category_id.toString(), 10);
       if (!Number.isNaN(parsedCategory)) {
-        productData.category = parsedCategory;
+        productData.category_id = parsedCategory;
       } else {
-        delete productData.category;
+        delete productData.category_id;
       }
     }
 
@@ -149,6 +150,21 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (productError) throw productError;
+
+    // Registra no AbacatePay e salva o ID retornado (não-fatal)
+    const abacatepayId = await syncProductToAbacatePay({
+      id:       String(product.id),
+      name:     product.name,
+      price:    product.price,
+      discount: product.discount ?? undefined,
+    });
+    if (abacatepayId) {
+      await supabase
+        .from("products")
+        .update({ abacatepay_product_id: abacatepayId })
+        .eq("id", product.id);
+      product.abacatepay_product_id = abacatepayId;
+    }
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {

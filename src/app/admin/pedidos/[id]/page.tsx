@@ -49,7 +49,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <ArrowLeft className="h-4 w-4" /> Voltar aos pedidos
             </Link>
             <h1 className="text-3xl font-bold mt-4">Pedido #{order.id}</h1>
-            <p className="text-muted-foreground mt-1">{new Date(order.date).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
+            <p className="text-muted-foreground mt-1">{new Date(order.ordered_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
           </div>
           <Badge className={statusLabels[order.status].color}>{statusLabels[order.status].label}</Badge>
         </div>
@@ -60,7 +60,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <div className="space-y-3 text-sm text-muted-foreground">
               <div>
                 <p className="font-medium text-foreground">Nome</p>
-                <p>{order.customer}</p>
+                <p>{order.customer_name}</p>
               </div>
               {order.customer_email && (
                 <div>

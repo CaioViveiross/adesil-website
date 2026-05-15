@@ -135,9 +135,10 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO profiles (id, name, email, role)
+  INSERT INTO public.profiles (id, name, email, role)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
@@ -147,6 +148,10 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Permissão para o role de auth executar o trigger
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO supabase_auth_admin;
+GRANT INSERT ON public.profiles TO supabase_auth_admin;
 
 
 -- ------------------------------------------------------------
@@ -317,8 +322,12 @@ CREATE POLICY "Allow admin read contact messages"
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 -- Leitura pública (visitantes sem login)
-GRANT SELECT ON public.categories       TO anon, authenticated;
-GRANT SELECT ON public.products         TO anon, authenticated;
+GRANT SELECT ON public.categories TO anon, authenticated;
+GRANT SELECT ON public.products   TO anon, authenticated;
+
+-- Escrita em categories e products (RLS restringe a admins)
+GRANT INSERT, UPDATE, DELETE ON public.categories TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.products   TO authenticated;
 
 -- Operações de usuário autenticado
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders           TO authenticated;

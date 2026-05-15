@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
+import { syncProductToAbacatePay } from "@/lib/abacatePay";
 
 async function getFeaturedProductsCount(supabase: Awaited<ReturnType<typeof createClient>>, excludingProductId?: string) {
   let query = supabase
@@ -87,12 +88,12 @@ export async function PUT(
       }
     }
 
-    if (productData.category !== undefined && productData.category !== null) {
-      const parsedCategory = parseInt(productData.category.toString(), 10);
+    if (productData.category_id !== undefined && productData.category_id !== null) {
+      const parsedCategory = parseInt(productData.category_id.toString(), 10);
       if (!Number.isNaN(parsedCategory)) {
-        productData.category = parsedCategory;
+        productData.category_id = parsedCategory;
       } else {
-        delete productData.category;
+        delete productData.category_id;
       }
     }
 
@@ -105,6 +106,24 @@ export async function PUT(
       .single();
 
     if (productError) throw productError;
+
+    // Se preço ou desconto mudou, re-registra no AbacatePay com o novo valor (não-fatal)
+    const priceChanged = body.price !== undefined || body.discount !== undefined;
+    if (priceChanged) {
+      const abacatepayId = await syncProductToAbacatePay({
+        id:       String(product.id),
+        name:     product.name,
+        price:    product.price,
+        discount: product.discount ?? undefined,
+      });
+      if (abacatepayId) {
+        await supabase
+          .from("products")
+          .update({ abacatepay_product_id: abacatepayId })
+          .eq("id", id);
+        product.abacatepay_product_id = abacatepayId;
+      }
+    }
 
     return NextResponse.json(product);
   } catch (error) {

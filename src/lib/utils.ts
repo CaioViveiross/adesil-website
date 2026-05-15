@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function salePrice(product: { price: number; discount?: number }): number {
+  if (!product.discount) return product.price;
+  return Math.round(product.price * (1 - product.discount / 100) * 100) / 100;
+}
+
 export function parseOrderDate(date?: string | null, createdAt?: string | null) {
   if (createdAt) {
     const createdDate = new Date(createdAt);

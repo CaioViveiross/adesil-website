@@ -1,12 +1,15 @@
-// Tipos baseados no schema do Supabase
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered';
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type UserRole = 'admin' | 'customer';
 
-// Categories
 export interface Category {
   id?: number;
   name: string;
   description?: string;
+  slug?: string;
+  is_active?: boolean;
+  deleted_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface BusinessCategory {
@@ -15,7 +18,6 @@ export interface BusinessCategory {
   image?: string;
 }
 
-// Contact messages
 export interface ContactMessage {
   id: number;
   name: string;
@@ -23,23 +25,27 @@ export interface ContactMessage {
   phone: string;
   message: string;
   created_at?: string;
+  updated_at?: string;
 }
 
-// Products
 export interface Product {
   id: string;
   name: string;
   description?: string;
   price: number;
-  original_price?: number;
+  discount?: number;
   image?: string;
-  category?: number;
+  category_id?: number;
   is_featured?: boolean;
-  tags?: string;
+  tags?: string[];
+  sku?: string;
+  stock_quantity?: number;
+  is_active?: boolean;
+  deleted_at?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
-// Clients
 export interface Client {
   id: string;
   name: string;
@@ -50,18 +56,30 @@ export interface Client {
   created_at?: string;
 }
 
-// Orders
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id?: string;
+  product_name_snapshot: string;
+  sku_snapshot?: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  created_at?: string;
+}
+
 export interface Order {
   id: string;
-  date: string;
+  ordered_at: string;
   status: OrderStatus;
   total: number;
   items: number;
-  customer: string;
+  customer_name: string;
   customer_id?: string;
   customer_email?: string;
   document?: string;
   billing_name?: string;
+  company_name?: string;
   shipping_zipcode?: string;
   shipping_street?: string;
   shipping_number?: string;
@@ -70,6 +88,7 @@ export interface Order {
   shipping_state?: string;
   shipping_country?: string;
   shipping_cost?: number;
+  /** @deprecated Use order_items table instead. Kept for backward-compat while UI migrates. */
   items_detail?: Array<{
     product_id: string;
     name: string;
@@ -77,15 +96,16 @@ export interface Order {
     price: number;
   }>;
   created_at?: string;
+  updated_at?: string;
 }
 
-// Profiles (auth integration)
 export interface Profile {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   avatar_url?: string;
+  phone?: string;
   document?: string;
   company_name?: string;
   shipping_zipcode?: string;
@@ -99,10 +119,12 @@ export interface Profile {
   updated_at?: string;
 }
 
-// Status labels for UI
 export const statusLabels: Record<OrderStatus, { label: string; color: string }> = {
-  pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-800" },
-  processing: { label: "Processando", color: "bg-sky-100 text-primary" },
-  shipped: { label: "Enviado", color: "bg-purple-100 text-purple-800" },
-  delivered: { label: "Entregue", color: "bg-green-100 text-green-800" },
+  pending:    { label: "Pendente",     color: "bg-yellow-100 text-yellow-800"  },
+  processing: { label: "Processando",  color: "bg-sky-100 text-primary"        },
+  shipped:    { label: "Enviado",      color: "bg-purple-100 text-purple-800"  },
+  delivered:  { label: "Entregue",     color: "bg-green-100 text-green-800"    },
+  failed:     { label: "Falhou",       color: "bg-red-100 text-red-800"        },
+  refunded:   { label: "Reembolsado",  color: "bg-orange-100 text-orange-800"  },
+  cancelled:  { label: "Cancelado",    color: "bg-gray-100 text-gray-700"      },
 };

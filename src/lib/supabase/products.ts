@@ -47,7 +47,7 @@ export async function getProductsByCategory(categoryId: number) {
         name
       )
     `)
-    .eq("category", categoryId)
+    .eq("category_id", categoryId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;

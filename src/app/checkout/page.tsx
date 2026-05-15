@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { lookupCep } from "@/lib/viaCep";
+import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 interface CheckoutForm {
@@ -61,6 +62,7 @@ function CheckoutContent() {
       ...prev,
       customer_name: user.name || prev.customer_name,
       email: user.email || prev.email,
+      phone: user.phone || prev.phone,
       document: user.document || prev.document,
       company_name: user.company_name || prev.company_name,
       shipping_zipcode: user.shipping_zipcode || prev.shipping_zipcode,
@@ -136,7 +138,7 @@ function CheckoutContent() {
             product_id: item.product.id,
             name: item.product.name,
             quantity: item.quantity,
-            price: item.product.price,
+            price: salePrice(item.product),
           })),
         }),
       });
@@ -350,7 +352,7 @@ function CheckoutContent() {
               {items.map((item) => (
                 <div key={`${item.product.id}-${item.customization?.text}`} className="flex justify-between gap-2">
                   <span className="text-muted-foreground truncate">{item.quantity}× {item.product.name}</span>
-                  <span className="tabular-nums shrink-0 font-medium">R$ {(item.product.price * item.quantity).toFixed(2).replace(".", ",")}</span>
+                  <span className="tabular-nums shrink-0 font-medium">R$ {(salePrice(item.product) * item.quantity).toFixed(2).replace(".", ",")}</span>
                 </div>
               ))}
             </div>

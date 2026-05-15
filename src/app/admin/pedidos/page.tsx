@@ -73,7 +73,7 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders.filter(order => {
     const orderId = String(order.id).toLowerCase();
-    const customer = String(order.customer ?? "").toLowerCase();
+    const customer = String(order.customer_name ?? "").toLowerCase();
     return orderId.includes(normalizedSearchTerm) || customer.includes(normalizedSearchTerm);
   });
 
@@ -177,8 +177,8 @@ export default function AdminOrdersPage() {
               {filteredOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.customer}</TableCell>
-                  <TableCell>{parseOrderDate(order.date, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</TableCell>
+                  <TableCell>{order.customer_name}</TableCell>
+                  <TableCell>{parseOrderDate(order.ordered_at, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</TableCell>
                   <TableCell>
                     <Select
                       value={order.status}
@@ -231,7 +231,7 @@ export default function AdminOrdersPage() {
             </DialogTitle>
             <DialogDescription>
               {selectedOrder
-                ? parseOrderDate(selectedOrder.date, selectedOrder.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                ? parseOrderDate(selectedOrder.ordered_at, selectedOrder.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -266,10 +266,10 @@ export default function AdminOrdersPage() {
                 <h3 className="text-sm font-semibold mb-3">Cliente &amp; Faturamento</h3>
                 <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                   <span className="text-muted-foreground">Nome</span>
-                  <span>{selectedOrder.customer ?? "-"}</span>
+                  <span>{selectedOrder.customer_name ?? "-"}</span>
 
                   <span className="text-muted-foreground">Faturar em nome de</span>
-                  <span>{selectedOrder.billing_name ?? selectedOrder.customer ?? "-"}</span>
+                  <span>{selectedOrder.billing_name ?? selectedOrder.customer_name ?? "-"}</span>
 
                   <span className="text-muted-foreground">E-mail</span>
                   <span>{selectedOrder.customer_email ?? "-"}</span>

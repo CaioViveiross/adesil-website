@@ -118,8 +118,8 @@ export default function AdminDashboard() {
               {orders.slice(0, 5).map((order) => (
                 <tr key={order.id} className="border-b last:border-0">
                   <td className="py-3 font-medium">{order.id}</td>
-                  <td className="py-3">{order.customer}</td>
-                  <td className="py-3">{parseOrderDate(order.date, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td>
+                  <td className="py-3">{order.customer_name}</td>
+                  <td className="py-3">{parseOrderDate(order.ordered_at, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td>
                   <td className="py-3">
                     <span className={`text-xs px-2 py-1 rounded-full ${statusLabels[order.status].color}`}>
                       {statusLabels[order.status].label}

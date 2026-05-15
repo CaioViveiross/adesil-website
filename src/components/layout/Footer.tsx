@@ -45,14 +45,18 @@ const Footer = () => {
             </div>
             <div className="flex gap-2 pt-1">
               <a
-                href="#"
+                href="https://www.instagram.com/adesilprint/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg border border-background/10 flex items-center justify-center hover:border-background/25 hover:text-background/90 transition-colors"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
               </a>
               <a
-                href="#"
+                href="https://www.facebook.com/adesilprintetiquetas/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg border border-background/10 flex items-center justify-center hover:border-background/25 hover:text-background/90 transition-colors"
                 aria-label="Facebook"
               >

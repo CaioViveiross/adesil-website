@@ -1,30 +1,28 @@
 const ABACATEPAY_API_BASE_URL = "https://api.abacatepay.com/v2";
 const ABACATEPAY_API_KEY = process.env.ABACATEPAY_API_KEY;
 
-export interface AbacatePayCheckoutProduct {
-  externalId: string;
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+
+export interface OrderItem {
+  product_id: string;
   name: string;
-  description?: string;
   quantity: number;
-  price: number; // em centavos
+  price: number; // em R$ (ex: 29.90)
+  /** ID do produto já registrado no AbacatePay — quando presente, pula o cadastro */
+  abacatepay_product_id?: string;
 }
 
-export interface AbacatePayCheckoutPayload {
-  products: AbacatePayCheckoutProduct[];
-  methods?: Array<"PIX" | "CARD">;
+export interface CheckoutOptions {
+  orderId: string;
+  items: OrderItem[];
   customer: {
     name: string;
     email: string;
     cellphone?: string;
     taxId?: string;
   };
-  externalId?: string;
-  returnUrl?: string;
-  completionUrl?: string;
-  card?: {
-    maxInstallments?: number;
-  };
-  metadata?: Record<string, string>;
+  appBaseUrl: string;
+  source?: string;
 }
 
 export interface AbacatePayCheckoutResponse {
@@ -35,24 +33,37 @@ export interface AbacatePayCheckoutResponse {
   devMode: boolean;
 }
 
+// ─── Config ──────────────────────────────────────────────────────────────────
+
 export function getAbacatePayConfig() {
   return { apiKey: ABACATEPAY_API_KEY };
 }
 
-export async function createAbacatePayCheckout(
-  payload: AbacatePayCheckoutPayload
-): Promise<AbacatePayCheckoutResponse> {
-  if (!ABACATEPAY_API_KEY) {
-    throw new Error("ABACATEPAY_API_KEY não configurada");
-  }
+// ─── Helpers internos ────────────────────────────────────────────────────────
 
-  const response = await fetch(`${ABACATEPAY_API_BASE_URL}/checkouts/create`, {
+function sanitizeCustomer(customer: CheckoutOptions["customer"]) {
+  const result: Record<string, string> = {
+    name:  customer.name,
+    email: customer.email,
+  };
+
+  const phone = customer.cellphone?.replace(/\D/g, "");
+  if (phone && phone.length >= 10) result.cellphone = phone;
+
+  const taxId = customer.taxId?.replace(/\D/g, "");
+  if (taxId && (taxId.length === 11 || taxId.length === 14)) result.taxId = taxId;
+
+  return result;
+}
+
+async function apiFetch(path: string, body: unknown): Promise<Record<string, unknown>> {
+  const response = await fetch(`${ABACATEPAY_API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${ABACATEPAY_API_KEY}`,
+      "Content-Type":  "application/json",
+      Authorization:   `Bearer ${ABACATEPAY_API_KEY}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 
@@ -64,19 +75,142 @@ export async function createAbacatePayCheckout(
   }
 
   if (!response.ok) {
-    throw new Error(
-      `AbacatePay checkout error (${response.status}): ${JSON.stringify(data)}`
-    );
+    const msg = (data as Record<string, unknown>)?.error ?? JSON.stringify(data);
+    throw new Error(`AbacatePay (${response.status}): ${msg}`);
   }
 
-  // A API retorna { data: { id, url, status, amount, devMode }, success, error }
-  const checkout = ((data as Record<string, unknown>).data ?? data) as Record<string, unknown>;
+  return ((data as Record<string, unknown>).data ?? data) as Record<string, unknown>;
+}
+
+/**
+ * Registra um produto no AbacatePay e retorna o ID gerado.
+ * externalId usa `{product_id}_{priceInCents}` para que mudanças de preço
+ * gerem uma nova entrada sem conflito com a anterior.
+ */
+async function createAbacatePayProduct(item: { product_id: string; name: string; price: number }): Promise<string> {
+  const priceInCents = Math.round(item.price * 100);
+  const externalId   = `${item.product_id}_${priceInCents}`;
+
+  const product = await apiFetch("/products/create", {
+    externalId,
+    name:     item.name,
+    price:    priceInCents,
+    currency: "BRL",
+  });
+
+  if (!product.id) throw new Error(`AbacatePay: produto sem ID na resposta (${item.name})`);
+  return String(product.id);
+}
+
+/**
+ * Sincroniza um produto com o AbacatePay.
+ * Chame ao criar ou atualizar preço de um produto no admin.
+ * Retorna o ID do produto no AbacatePay, ou null em caso de falha.
+ */
+export async function syncProductToAbacatePay(product: {
+  id: string;
+  name: string;
+  price: number;
+  discount?: number;
+}): Promise<string | null> {
+  if (!ABACATEPAY_API_KEY) return null;
+
+  const salePrice = product.discount
+    ? Math.round(product.price * (1 - product.discount / 100) * 100) / 100
+    : product.price;
+
+  try {
+    return await createAbacatePayProduct({ product_id: product.id, name: product.name, price: salePrice });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cria ou recupera um customer no AbacatePay.
+ * A API retorna o customer existente se o taxId já estiver cadastrado.
+ */
+export async function createOrFindAbacatePayCustomer(
+  customer: CheckoutOptions["customer"]
+): Promise<string | null> {
+  if (!ABACATEPAY_API_KEY) return null;
+
+  try {
+    const body: Record<string, string> = {
+      name:  customer.name,
+      email: customer.email,
+    };
+
+    const phone = customer.cellphone?.replace(/\D/g, "");
+    if (phone && phone.length >= 10) body.cellphone = phone;
+
+    const taxId = customer.taxId?.replace(/\D/g, "");
+    if (taxId && (taxId.length === 11 || taxId.length === 14)) body.taxId = taxId;
+
+    const result = await apiFetch("/customers/create", body);
+    return result.id ? String(result.id) : null;
+  } catch {
+    // Non-fatal: checkout still works without a pre-created customer
+    return null;
+  }
+}
+
+// ─── Função principal ─────────────────────────────────────────────────────────
+
+/**
+ * Cria produtos no AbacatePay e gera o checkout com PIX + Cartão.
+ * Fluxo: customers/create → products/create (por item) → checkouts/create
+ */
+export async function createAbacatePayCheckout(
+  options: CheckoutOptions
+): Promise<AbacatePayCheckoutResponse> {
+  if (!ABACATEPAY_API_KEY) throw new Error("ABACATEPAY_API_KEY não configurada");
+  if (!options.items.length) throw new Error("O pedido não possui itens");
+
+  // 1. Criar/recuperar customer para pré-preencher dados no checkout
+  const customerId = await createOrFindAbacatePayCustomer(options.customer);
+
+  // 2. Obter IDs dos produtos no AbacatePay
+  //    Se o item já tem abacatepay_product_id (pré-registrado no admin), usa direto.
+  //    Caso contrário, registra agora (fallback para produtos legados).
+  const checkoutItems = await Promise.all(
+    options.items.map(async (item) => {
+      const abacatePayId = item.abacatepay_product_id
+        ?? await createAbacatePayProduct(item);
+      return { id: abacatePayId, quantity: item.quantity };
+    })
+  );
+
+  // 3. Criar o checkout
+  const totalBRL = options.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  // AbacatePay exige mínimo de R$10 por parcela
+  const maxInstallments = Math.max(1, Math.min(12, Math.floor(totalBRL / 10)));
+
+  const checkoutBody: Record<string, unknown> = {
+    items:         checkoutItems,
+    methods:       ["PIX", "CARD"],
+    customer:      sanitizeCustomer(options.customer),
+    externalId:    String(options.orderId),
+    returnUrl:     `${options.appBaseUrl}/meus-pedidos/${options.orderId}`,
+    completionUrl: `${options.appBaseUrl}/meus-pedidos/${options.orderId}?payment=success`,
+    card:          { maxInstallments },
+    metadata: {
+      order_id: String(options.orderId),
+      source:   options.source ?? "adesil-web-checkout",
+    },
+  };
+
+  if (customerId) checkoutBody.customerId = customerId;
+
+  const checkout = await apiFetch("/checkouts/create", checkoutBody);
+
+  if (!checkout.url) throw new Error("AbacatePay não retornou URL de pagamento");
 
   return {
-    id: String(checkout.id ?? ""),
-    url: String(checkout.url ?? ""),
-    status: String(checkout.status ?? "PENDING"),
-    amount: Number(checkout.amount ?? 0),
+    id:      String(checkout.id ?? ""),
+    url:     String(checkout.url),
+    status:  String(checkout.status ?? "PENDING"),
+    amount:  Number(checkout.amount ?? 0),
     devMode: Boolean(checkout.devMode ?? false),
   };
 }
