@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabaseServer";
+import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -10,7 +10,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth?error=missing_code`);
   }
 
-  const supabase = await createClient();
+  // Cria o response de redirect ANTES de chamar exchangeCodeForSession,
+  // para que os cookies da sessão sejam escritos diretamente nele.
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
@@ -18,6 +38,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/auth?error=oauth_failed`);
   }
 
-  // Redireciona para a página solicitada ou home
-  return NextResponse.redirect(`${origin}${next}`);
+  return response;
 }

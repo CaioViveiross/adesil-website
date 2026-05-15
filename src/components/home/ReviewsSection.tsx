@@ -115,7 +115,7 @@ const ReviewsSection = () => {
           from { transform: translateX(0); }
           to   { transform: translateX(-33.333%); }
         }
-        .marquee-left  { animation: marquee-left 30s linear infinite; }
+        .marquee-left  { animation: marquee-left 40s linear infinite; }
         .marquee-track:hover .marquee-left { animation-play-state: paused; }
       `}</style>
 
@@ -151,7 +151,7 @@ const ReviewsSection = () => {
           style={{ background: "linear-gradient(to left, hsl(var(--background)), transparent)" }}
         />
 
-        <div className="flex gap-4 marquee-left will-change-transform">
+        <div className="flex flex-nowrap min-w-max gap-4 marquee-left will-change-transform">
           {row1.map((review, i) => (
             <ReviewCard key={i} review={review} index={i % reviews.length} />
           ))}
