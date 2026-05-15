@@ -5,73 +5,72 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserCheck, UserX } from "lucide-react";
+import { Search, UserCheck, UserX, ShoppingBag, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { Profile, UserRole } from "@/types/supabase";
+import { statusLabels } from "@/types/supabase";
+import type { Profile, UserRole, Order } from "@/types/supabase";
 
 export default function AdminSettingsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    fetchProfiles();
-  }, []);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyCustomer, setHistoryCustomer] = useState<Profile | null>(null);
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchProfiles = async () => {
-    try {
-      const response = await fetch('/api/admin/profiles?limit=100');
-      if (response.ok) {
-        const data = await response.json();
-        setProfiles(data);
-      }
-    } catch (error) {
-      console.error('Error fetching profiles:', error);
-    } finally {
-      setLoading(false);
-    }
+    const response = await fetch('/api/admin/profiles?limit=100');
+    if (response.ok) setProfiles(await response.json());
+    setLoading(false);
   };
 
-  const filteredProfiles = profiles.filter(profile =>
-    profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    profile.email.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => { fetchProfiles(); }, []);
+
+  const filteredProfiles = profiles.filter((p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleRoleChange = async (profileId: string, newRole: UserRole) => {
-    try {
-      const response = await fetch(`/api/admin/profiles/${profileId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      if (response.ok) {
-        await fetchProfiles();
-      }
-    } catch (error) {
-      console.error('Error updating profile role:', error);
-    }
+    const response = await fetch(`/api/admin/profiles/${profileId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (response.ok) fetchProfiles();
   };
 
   const handleDeleteProfile = async (profileId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este perfil? Esta ação não pode ser desfeita.')) return;
-
-    try {
-      const response = await fetch(`/api/admin/profiles/${profileId}`, { method: 'DELETE' });
-      if (response.ok) {
-        await fetchProfiles();
-      }
-    } catch (error) {
-      console.error('Error deleting profile:', error);
-    }
+    if (!confirm('Tem certeza que deseja excluir este perfil?')) return;
+    const response = await fetch(`/api/admin/profiles/${profileId}`, { method: 'DELETE' });
+    if (response.ok) fetchProfiles();
   };
+
+  const openHistory = async (profile: Profile) => {
+    setHistoryCustomer(profile);
+    setHistoryOrders([]);
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    const res = await fetch(`/api/orders?customer_id=${profile.id}&limit=50`);
+    if (res.ok) setHistoryOrders(await res.json());
+    setHistoryLoading(false);
+  };
+
+  const totalSpent = historyOrders
+    .filter((o) => o.status !== "cancelled" && o.status !== "failed")
+    .reduce((s, o) => s + Number(o.total), 0);
+
+  const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
   if (loading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
       </AdminLayout>
     );
@@ -84,23 +83,20 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="space-y-8">
-        {/* User Management Section */}
         <div className="bg-card rounded-2xl border p-6">
           <div className="flex items-center gap-2 mb-6">
             <UserCheck className="h-5 w-5" />
             <h2 className="text-lg font-semibold">Gerenciamento de Usuários</h2>
           </div>
 
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou e-mail..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou e-mail..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
           <div className="overflow-x-auto">
@@ -111,18 +107,18 @@ export default function AdminSettingsPage() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Função</TableHead>
                   <TableHead>Cadastro</TableHead>
-                  <TableHead className="w-32">Ações</TableHead>
+                  <TableHead className="w-28">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProfiles.map((profile) => (
                   <TableRow key={profile.id}>
                     <TableCell className="font-medium">{profile.name}</TableCell>
-                    <TableCell>{profile.email}</TableCell>
+                    <TableCell className="text-muted-foreground">{profile.email}</TableCell>
                     <TableCell>
                       <Select
                         value={profile.role}
-                        onValueChange={(value) => handleRoleChange(profile.id, value as UserRole)}
+                        onValueChange={(v) => handleRoleChange(profile.id, v as UserRole)}
                       >
                         <SelectTrigger className="w-32">
                           <Badge variant={profile.role === 'admin' ? 'default' : 'secondary'}>
@@ -135,18 +131,25 @@ export default function AdminSettingsPage() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
                       {new Date(profile.created_at || '').toLocaleDateString("pt-BR")}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteProfile(profile.id)}
-                        disabled={profile.role === 'admin' && filteredProfiles.filter(p => p.role === 'admin').length === 1}
-                      >
-                        <UserX className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm" variant="ghost" className="h-8 w-8 p-0" title="Histórico de compras"
+                          onClick={() => openHistory(profile)}
+                        >
+                          <ShoppingBag className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm" variant="ghost" className="h-8 w-8 p-0"
+                          onClick={() => handleDeleteProfile(profile.id)}
+                          disabled={profile.role === 'admin' && filteredProfiles.filter((p) => p.role === 'admin').length === 1}
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -155,41 +158,106 @@ export default function AdminSettingsPage() {
           </div>
 
           {filteredProfiles.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum usuário encontrado.
-            </div>
+            <div className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado.</div>
           )}
         </div>
 
-        {/* System Info Section */}
         <div className="bg-card rounded-2xl border p-6">
           <h2 className="text-lg font-semibold mb-4">Informações do Sistema</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{profiles.length}</div>
-              <div className="text-sm text-muted-foreground">Total de Usuários</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {profiles.filter(p => p.role === 'admin').length}
+            {[
+              { label: "Total de Usuários", value: profiles.length },
+              { label: "Administradores",   value: profiles.filter((p) => p.role === "admin").length },
+              { label: "Clientes",          value: profiles.filter((p) => p.role === "customer").length },
+              { label: "Data Atual",        value: new Date().toLocaleDateString("pt-BR") },
+            ].map(({ label, value }) => (
+              <div key={label} className="text-center p-4 rounded-xl bg-muted/40">
+                <div className="text-2xl font-bold text-primary">{value}</div>
+                <div className="text-sm text-muted-foreground mt-0.5">{label}</div>
               </div>
-              <div className="text-sm text-muted-foreground">Administradores</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {profiles.filter(p => p.role === 'customer').length}
-              </div>
-              <div className="text-sm text-muted-foreground">Clientes</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {new Date().toLocaleDateString("pt-BR")}
-              </div>
-              <div className="text-sm text-muted-foreground">Data Atual</div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* Modal histórico de compras */}
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5" />
+              Histórico de {historyCustomer?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4 pt-1">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Pedidos", value: historyOrders.length },
+                  { label: "Total gasto", value: fmt(totalSpent) },
+                  { label: "Ticket médio", value: historyOrders.length > 0 ? fmt(totalSpent / historyOrders.length) : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="rounded-xl border bg-card p-3 text-center">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="font-bold text-sm mt-0.5">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {historyOrders.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pedido</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="w-8" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyOrders.map((order) => {
+                      const info = statusLabels[order.status] ?? { label: order.status, color: "bg-muted text-muted-foreground" };
+                      return (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            #{String(order.id).slice(0, 8).toUpperCase()}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {order.ordered_at
+                              ? new Date(order.ordered_at).toLocaleDateString("pt-BR")
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${info.color}`}>
+                              {info.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums text-sm">
+                            {fmt(Number(order.total))}
+                          </TableCell>
+                          <TableCell>
+                            <a href={`/admin/pedidos/${order.id}`} target="_blank" rel="noopener noreferrer">
+                              <ChevronRight className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                            </a>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

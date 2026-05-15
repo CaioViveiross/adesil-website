@@ -9,10 +9,23 @@ import type { Order } from "@/types/supabase";
 const SHIPPING_COST      = 29.9;
 const FREE_SHIPPING_FROM = 300;
 
-const VALID_COUPONS: Record<string, { type: "percent"; value: number }> = {
-  ADESIL10: { type: "percent", value: 10 },
-  FRETE:    { type: "percent", value: 15 },
-};
+async function fetchCoupon(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string
+): Promise<{ type: "percent" | "fixed"; value: number } | null> {
+  if (!code) return null;
+  const { data } = await supabase
+    .from("coupons")
+    .select("type, value, is_active, max_uses, uses_count, expires_at")
+    .eq("code", code.toUpperCase())
+    .single();
+
+  if (!data || !data.is_active) return null;
+  if (data.max_uses !== null && data.uses_count >= data.max_uses) return null;
+  if (data.expires_at && new Date(data.expires_at) < new Date()) return null;
+
+  return { type: data.type as "percent" | "fixed", value: Number(data.value) };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,11 +88,10 @@ async function validateAndPriceItems(
   });
 }
 
-function applyCouponDiscount(subtotal: number, couponCode: string | undefined): number {
-  if (!couponCode) return 0;
-  const coupon = VALID_COUPONS[couponCode.toUpperCase()];
+function applyDiscount(subtotal: number, coupon: { type: "percent" | "fixed"; value: number } | null): number {
   if (!coupon) return 0;
-  return Math.round(subtotal * (coupon.value / 100) * 100) / 100;
+  if (coupon.type === "percent") return Math.round(subtotal * (coupon.value / 100) * 100) / 100;
+  return Math.min(coupon.value, subtotal);
 }
 
 function calculateShipping(subtotal: number, discountAmount: number): number {
@@ -143,7 +155,8 @@ export async function POST(request: NextRequest) {
 
     // Server-side financial calculations (never trust client totals)
     const subtotal      = validatedItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-    const discountAmt   = applyCouponDiscount(subtotal, coupon);
+    const couponData    = await fetchCoupon(supabase, coupon);
+    const discountAmt   = applyDiscount(subtotal, couponData);
     const shippingCost  = calculateShipping(subtotal, discountAmt);
     const finalTotal    = Math.round((subtotal - discountAmt + shippingCost) * 100) / 100;
     const itemCount     = validatedItems.reduce((sum, i) => sum + i.quantity, 0);

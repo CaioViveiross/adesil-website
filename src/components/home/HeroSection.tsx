@@ -30,28 +30,7 @@ const HeroSection = () => {
       {/* Animated gradient overlay */}
       <div className="absolute inset-0 hero-bg-animated opacity-90" />
 
-      {/* Orb 1 — top right, drifts slowly */}
-      <motion.div
-        animate={{ x: [0, -30, 10, -20, 0], y: [0, 25, -15, 30, 0] }}
-        transition={{ duration: 45, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full bg-blue-500/14 blur-[120px] -translate-y-1/3 translate-x-1/4 pointer-events-none will-change-transform"
-      />
-
-      {/* Orb 2 — bottom left, opposite rhythm */}
-      <motion.div
-        animate={{ x: [0, 35, -15, 25, 0], y: [0, -30, 20, -20, 0] }}
-        transition={{ duration: 55, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full bg-indigo-600/16 blur-[100px] translate-y-1/3 -translate-x-1/4 pointer-events-none will-change-transform"
-      />
-
-      {/* Orb 3 — center, slow pulse */}
-      <motion.div
-        animate={{ scale: [1, 1.08, 0.97, 1.05, 1], opacity: [0.06, 0.10, 0.06, 0.09, 0.06] }}
-        transition={{ duration: 35, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-blue-400 blur-[140px] pointer-events-none will-change-transform"
-      />
-
-      <div className="container relative z-10 py-32 md:py-44">
+      <div className="container relative z-10 py-24 md:py-28">
         <div className="max-w-2xl">
           <motion.div
             variants={container}

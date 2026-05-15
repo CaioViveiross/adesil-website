@@ -24,27 +24,9 @@ const reviews = [
   },
   {
     name: "Lelaine Vieira",
-    role: "Empresa parceira",
+    role: "Cliente verificado",
     rating: 5,
     text: "Excelente atendimento, etiquetas ótimas! Peço sempre pra nossa empresa. Agilidade, preço e qualidade! Super recomendo!",
-  },
-  {
-    name: "Patrícia Mendes",
-    role: "Açougue São Jorge",
-    rating: 5,
-    text: "Etiquetas de excelente qualidade. Nosso açougue ficou muito mais organizado e profissional após adotar os produtos da Adesil.",
-  },
-  {
-    name: "Ricardo Teixeira",
-    role: "Mercado Bom Preço",
-    rating: 5,
-    text: "Entrega rápida e preços justos. Recomendo para qualquer comércio que precise de etiquetas com qualidade garantida.",
-  },
-  {
-    name: "Luciana Ferreira",
-    role: "Papelaria Criativa",
-    rating: 5,
-    text: "As etiquetas são lindas! Nossos clientes adoraram e já estamos fazendo novos pedidos com frequência.",
   },
   {
     name: "Felipe Shimosaka",
@@ -53,10 +35,22 @@ const reviews = [
     text: "Ótimo atendimento, bem simpáticos e fácil resolução de problemas.",
   },
   {
-    name: "Edvaldo Moreira",
-    role: "Passadoria Emanuel",
+    name: "Passadoria Emanuel",
+    role: "Empresa parceira",
     rating: 5,
     text: "As etiquetas da Adesil são de excelente qualidade e durabilidade. Recomendo para qualquer negócio que precise de soluções de etiquetagem confiáveis.",
+  },
+  {
+    name: "Santissima Vestimenta",
+    role: "Empresa parceira",
+    rating: 5,
+    text: "Trabalhar com a Adesil é uma experiência excelente. Desde o primeiro contato, tivemos um atendimento muito atencioso e profissional. As etiquetas chegaram com ótima qualidade, acabamento impecável e dentro do prazo combinado."
+  },
+  {
+    name: "Nova Jerusalem Diesel",
+    role: "Cliente verificado",
+    rating: 5,
+    text: "Produtos de extrema qualidade. Recomendamos!!!"
   }
 ];
 

@@ -23,7 +23,8 @@ interface CartContextType {
   coupon: string;
   setCoupon: (c: string) => void;
   discount: number;
-  applyCoupon: () => void;
+  discountType: "percent" | "fixed";
+  applyCoupon: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -71,13 +72,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCoupon("");
   }, []);
 
-  const applyCoupon = useCallback(() => {
-    if (coupon.toUpperCase() === "ADESIL10") {
-      setDiscount(10);
-    } else if (coupon.toUpperCase() === "FRETE") {
-      setDiscount(15);
-    } else {
+  const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
+
+  const applyCoupon = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    if (!coupon.trim()) {
       setDiscount(0);
+      return { success: false, error: "Informe um cupom" };
+    }
+    try {
+      const res = await fetch(`/api/coupons/validate?code=${encodeURIComponent(coupon.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setDiscount(0);
+        return { success: false, error: data.error ?? "Cupom inválido" };
+      }
+      setDiscountType(data.type);
+      setDiscount(Number(data.value));
+      return { success: true };
+    } catch {
+      setDiscount(0);
+      return { success: false, error: "Erro ao validar cupom" };
     }
   }, [coupon]);
 
@@ -86,7 +100,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, itemCount, coupon, setCoupon, discount, applyCoupon }}
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, itemCount, coupon, setCoupon, discount, discountType, applyCoupon }}
     >
       {children}
     </CartContext.Provider>

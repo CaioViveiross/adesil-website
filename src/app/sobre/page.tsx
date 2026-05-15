@@ -13,7 +13,7 @@ import {
 import { motion } from "framer-motion";
 
 const stats = [
-  { value: "20+", label: "Anos de experiência" },
+  { value: "4+", label: "Anos de experiência" },
   { value: "500+", label: "Clientes ativos" },
   { value: "10M+", label: "Etiquetas entregues" },
   { value: "9+", label: "Segmentos atendidos" },
@@ -188,7 +188,7 @@ export default function SobrePage() {
             </span>
 
             <h1 className="text-4xl md:text-5xl font-bold text-white leading-[1.07] tracking-tight">
-              Mais de 20 anos conectando empresas à qualidade
+              Mais de 4 anos conectando empresas à qualidade
             </h1>
 
             <p className="text-white/60 text-lg leading-relaxed max-w-lg">

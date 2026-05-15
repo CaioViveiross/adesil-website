@@ -32,11 +32,11 @@ const Footer = () => {
                 11 4210-7059
               </a>
               <a
-                href="mailto:pcp@adesilprint.com.br"
+                href="mailto:contato@adesilprint.com.br"
                 className="flex items-center gap-2 hover:text-background/75 transition-colors"
               >
                 <Mail className="h-3.5 w-3.5 shrink-0" />
-                pcp@adesilprint.com.br
+                contato@adesilprint.com.br
               </a>
               <p className="flex items-start gap-2">
                 <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -70,22 +70,22 @@ const Footer = () => {
             <h4 className="font-semibold text-background/90 text-sm mb-5">Categorias</h4>
             <ul className="space-y-3 text-sm text-background/45">
               <li>
-                <Link href="/categoria/adesivas" className="hover:text-background/75 transition-colors">
+                <Link href="/produtos" className="hover:text-background/75 transition-colors">
                   Etiquetas Adesivas
                 </Link>
               </li>
               <li>
-                <Link href="/categoria/balanca" className="hover:text-background/75 transition-colors">
+                <Link href="/produtos" className="hover:text-background/75 transition-colors">
                   Etiquetas para Balança
                 </Link>
               </li>
               <li>
-                <Link href="/categoria/ribbons" className="hover:text-background/75 transition-colors">
+                <Link href="/categoria/1" className="hover:text-background/75 transition-colors">
                   Ribbons
                 </Link>
               </li>
               <li>
-                <Link href="/categoria/couche" className="hover:text-background/75 transition-colors">
+                <Link href="/produtos" className="hover:text-background/75 transition-colors">
                   Couchê
                 </Link>
               </li>
@@ -97,13 +97,8 @@ const Footer = () => {
             <h4 className="font-semibold text-background/90 text-sm mb-5">Institucional</h4>
             <ul className="space-y-3 text-sm text-background/45">
               <li>
-                <Link href="/" className="hover:text-background/75 transition-colors">
+                <Link href="/sobre" className="hover:text-background/75 transition-colors">
                   Sobre nós
-                </Link>
-              </li>
-              <li>
-                <Link href="/" className="hover:text-background/75 transition-colors">
-                  Nossa qualidade
                 </Link>
               </li>
               <li>

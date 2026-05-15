@@ -6,7 +6,7 @@ import { ArrowRight, Users, Award, Package, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 
 const stats = [
-  { value: "20+", label: "Anos de experiência", icon: Award },
+  { value: "4+", label: "Anos de experiência", icon: Award },
   { value: "500+", label: "Clientes ativos", icon: Users },
   { value: "10M+", label: "Etiquetas entregues", icon: Package },
   { value: "Todo o Brasil", label: "Área de atuação", icon: MapPin },
@@ -27,7 +27,7 @@ export default function SobreNosSection() {
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Sobre nós</span>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Especialistas em etiquetas há mais de 20 anos
+              Especialistas em etiquetas há mais de 4 anos
             </h2>
           </div>
 

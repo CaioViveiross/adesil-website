@@ -18,8 +18,8 @@ const contactInfo = [
   {
     icon: Mail,
     label: "E-mail",
-    value: "pcp@adesilprint.com.br",
-    href: "mailto:pcp@adesilprint.com.br",
+    value: "contato@adesilprint.com.br",
+    href: "mailto:contato@adesilprint.com.br",
   },
   {
     icon: MapPin,

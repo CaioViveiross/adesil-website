@@ -36,14 +36,14 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/60">
-      <div className="container flex items-center justify-between h-20">
+      <div className="container flex items-center justify-between h-24">
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image
             src="/images/adesil_logo.svg"
             alt="Adesil Print"
             width={80}
             height={40}
-            className="h-10 w-auto"
+            className="h-12 w-auto"
           />
         </Link>
 

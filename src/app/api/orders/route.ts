@@ -1,29 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrders, createOrder } from "@/lib/supabase/orders";
 import { createClient } from "@/lib/supabaseServer";
+import { getCurrentProfile } from "@/lib/supabase/auth";
 import type { OrderStatus } from "@/types/supabase";
 
 // GET /api/orders - Listar pedidos
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const offset = parseInt(searchParams.get("offset") || "0");
+    const limit      = parseInt(searchParams.get("limit")  || "50");
+    const offset     = parseInt(searchParams.get("offset") || "0");
     const statusParam = searchParams.get("status");
-    const mine = searchParams.get("mine") === "true";
+    const mine        = searchParams.get("mine") === "true";
+    const filterById  = searchParams.get("customer_id");
 
-    const status = statusParam && ['pending', 'processing', 'shipped', 'delivered'].includes(statusParam)
+    const status = statusParam && ['pending', 'processing', 'shipped', 'delivered', 'failed', 'refunded', 'cancelled'].includes(statusParam)
       ? statusParam as OrderStatus
       : undefined;
 
+    const supabase = await createClient();
     let customerId: string | undefined;
+
     if (mine) {
-      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         return NextResponse.json({ error: "Usuário não autenticado" }, { status: 401 });
       }
       customerId = user.id;
+    } else if (filterById) {
+      // Somente admins podem filtrar por customer_id arbitrário
+      const profile = await getCurrentProfile();
+      if (!profile || profile.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      customerId = filterById;
     }
 
     const orders = await getOrders(limit, offset, status, customerId);
