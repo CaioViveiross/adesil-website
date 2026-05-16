@@ -50,6 +50,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    if (!body.slug && body.name) {
+      body.slug = body.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+
     const { data, error } = await supabase
       .from("categories")
       .insert(body)

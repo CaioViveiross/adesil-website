@@ -18,10 +18,7 @@ export default function AdminCategoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
+  const [formData, setFormData] = useState({ name: "", description: "" });
 
   useEffect(() => {
     fetchData();
@@ -78,19 +75,13 @@ export default function AdminCategoriesPage() {
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description || "",
-    });
+    setFormData({ name: category.name, description: category.description || "" });
     setIsDialogOpen(true);
   };
 
   const resetForm = () => {
     setEditingCategory(null);
-    setFormData({
-      name: "",
-      description: "",
-    });
+    setFormData({ name: "", description: "" });
   };
 
   if (loading) {
@@ -126,7 +117,7 @@ export default function AdminCategoriesPage() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                   required
                 />
               </div>
@@ -136,7 +127,7 @@ export default function AdminCategoriesPage() {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
                   rows={3}
                 />
               </div>
@@ -159,7 +150,6 @@ export default function AdminCategoriesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
@@ -168,9 +158,8 @@ export default function AdminCategoriesPage() {
             <TableBody>
               {categories.map((category) => (
                 <TableRow key={category.id}>
-                  <TableCell className="font-mono text-sm">{category.id}</TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="max-w-xs truncate">
+                  <TableCell className="max-w-xs truncate text-muted-foreground text-sm">
                     {category.description || ''}
                   </TableCell>
                   <TableCell>

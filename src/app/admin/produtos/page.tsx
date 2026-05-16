@@ -348,7 +348,7 @@ export default function AdminProductsPage() {
                   <Label htmlFor="tags">Tags <span className="text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
                   <Input
                     id="tags"
-                    placeholder="ex: ribbon, adesivo, couche"
+                    placeholder="ex: Novo produto, Em destaque"
                     value={formData.tags}
                     onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   />

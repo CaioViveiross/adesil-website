@@ -10,10 +10,10 @@ import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const sortOptions = [
-  { id: "relevance", label: "Relevância" },
-  { id: "price-asc", label: "Menor preço" },
-  { id: "price-desc", label: "Maior preço" },
-  { id: "name", label: "Nome A-Z" },
+  { id: "relevance",  label: "Relevância"   },
+  { id: "price-asc",  label: "Menor preço"  },
+  { id: "price-desc", label: "Maior preço"  },
+  { id: "name",       label: "Nome A-Z"     },
 ];
 
 const ProductSkeleton = () => (
@@ -29,12 +29,16 @@ const ProductSkeleton = () => (
 
 export default function CategoryPage() {
   const params = useParams();
-  const id = params.id as string;
-  const categoryId = id === "todos" ? undefined : Number(id);
-  const [sort, setSort] = useState("relevance");
-  const [products, setProducts] = useState<Product[]>([]);
+  const slug = params.id as string; // param key mantido para não renomear a pasta
+  const isTodos = slug === "todos";
+
+  const [sort,       setSort]       = useState("relevance");
+  const [products,   setProducts]   = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading,    setLoading]    = useState(true);
+
+  // Encontra a categoria pelo slug
+  const category = isTodos ? undefined : categories.find((c) => c.slug === slug);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,9 +46,7 @@ export default function CategoryPage() {
       try {
         const [catRes, prodRes] = await Promise.all([
           fetch('/api/categories'),
-          fetch(id === "todos" || categoryId === undefined || Number.isNaN(categoryId)
-            ? '/api/products'
-            : `/api/products?category=${categoryId}`),
+          fetch('/api/products'),
         ]);
         setCategories(catRes.ok ? await catRes.json() : []);
         setProducts(prodRes.ok ? await prodRes.json() : []);
@@ -55,31 +57,30 @@ export default function CategoryPage() {
       }
     };
     fetchData();
-  }, [id]);
+  }, []);
 
-  const category = categories.find((c) => c.id === categoryId);
-  const filtered = id === "todos" ? products : products.filter((p) => p.category_id === categoryId);
+  const filtered = isTodos || !category
+    ? products
+    : products.filter((p) => p.category_id === category.id);
+
   const sorted = [...filtered].sort((a, b) => {
     switch (sort) {
-      case "price-asc": return salePrice(a) - salePrice(b);
+      case "price-asc":  return salePrice(a) - salePrice(b);
       case "price-desc": return salePrice(b) - salePrice(a);
-      case "name": return (a.name || "").localeCompare(b.name || "");
-      default: return 0;
+      case "name":       return (a.name || "").localeCompare(b.name || "");
+      default:           return 0;
     }
   });
 
   return (
     <Layout>
       <div className="container py-12 md:py-20">
-        {/* Header */}
         <div className="mb-8 md:mb-10">
           <span className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">Catálogo</span>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">
-            {loading ? (
-              <div className="h-8 bg-muted animate-pulse rounded-lg w-48 mt-1" />
-            ) : (
-              category?.name || "Todos os Produtos"
-            )}
+            {loading
+              ? <div className="h-8 bg-muted animate-pulse rounded-lg w-48 mt-1" />
+              : category?.name || "Todos os Produtos"}
           </h1>
           {!loading && (
             <p className="text-muted-foreground text-sm mt-1">
@@ -88,13 +89,13 @@ export default function CategoryPage() {
           )}
         </div>
 
-        {/* Filters bar */}
+        {/* Filtros por categoria */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-8 pb-6 border-b border-border">
           <div className="flex items-center gap-2 flex-wrap">
             <a
               href="/categoria/todos"
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                id === "todos"
+                isTodos
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
               }`}
@@ -104,9 +105,9 @@ export default function CategoryPage() {
             {categories.map((cat) => (
               <a
                 key={cat.id}
-                href={`/categoria/${cat.id}`}
+                href={`/categoria/${cat.slug}`}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
-                  String(cat.id) === id
+                  cat.slug === slug
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 }`}
@@ -127,7 +128,7 @@ export default function CategoryPage() {
           </select>
         </div>
 
-        {/* Grid */}
+        {/* Grid de produtos */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 items-stretch">
           {loading
             ? Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)
@@ -141,11 +142,9 @@ export default function CategoryPage() {
                 >
                   <ProductCard product={product} />
                 </motion.div>
-              ))
-          }
+              ))}
         </div>
 
-        {/* Empty state */}
         {!loading && sorted.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
