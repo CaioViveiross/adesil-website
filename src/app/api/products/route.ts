@@ -64,7 +64,9 @@ export async function GET(request: NextRequest) {
         .filter((product: { id: string; is_featured?: boolean }) => !product.is_featured && !featuredIds.has(product.id))
         .slice(0, Math.max(limit - selectedFeatured.length, 0));
 
-      return NextResponse.json([...selectedFeatured, ...fallbackProducts]);
+      return NextResponse.json([...selectedFeatured, ...fallbackProducts], {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+      });
     }
 
     let query = supabase
@@ -83,7 +85,9 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(data || []);
+    return NextResponse.json(data || [], {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
   } catch (error) {
     console.error("Error fetching products:", error);
     return NextResponse.json(

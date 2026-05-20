@@ -40,7 +40,7 @@ const Footer = () => {
               </a>
               <p className="flex items-start gap-2">
                 <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                Rua Senador Darcy Ribeiro 33, São Paulo - SP
+                Av. Dr. Décio de Toledo Leite, 100 - Jardim das Oliveiras, São Paulo - SP
               </p>
             </div>
             <div className="flex gap-2 pt-1">

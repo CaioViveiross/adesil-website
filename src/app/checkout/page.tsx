@@ -2,11 +2,12 @@
 
 import Layout from "@/components/layout/Layout";
 import { useCart } from "@/contexts/CartContext";
+import type { ShippingOption } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, Suspense } from "react";
-import { Package, CreditCard, QrCode, ExternalLink, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { Package, CreditCard, QrCode, ExternalLink, AlertCircle, Truck, CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -37,8 +38,16 @@ const initialFormState: CheckoutForm = {
 const isCnpj = (value: string) => value.replace(/\D/g, "").length === 14;
 const fieldClass = "h-11 rounded-xl text-sm";
 
+const STATIC_SHIPPING_COST = 29.9;
+const STATIC_SHIPPING_THRESHOLD = 300;
+
 function CheckoutContent() {
-  const { items, total, discount, clearCart } = useCart();
+  const {
+    items, total, discount, discountType, coupon, clearCart,
+    shippingOptions, setShippingOptions,
+    selectedShipping, setSelectedShipping,
+    shippingZip, setShippingZip,
+  } = useCart();
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,10 +59,25 @@ function CheckoutContent() {
   const [zipError, setZipError] = useState("");
   const [addressLookupPending, setAddressLookupPending] = useState(false);
   const [lastFetchedZip, setLastFetchedZip] = useState("");
+  const [shippingCalcLoading, setShippingCalcLoading] = useState(false);
+  const lastCalcZip = useRef("");
 
-  const shipping = total > 300 ? 0 : 29.9;
-  const discountAmount = (total * discount) / 100;
-  const finalTotal = total - discountAmount + shipping;
+  const discountAmount =
+    discountType === "percent"
+      ? (total * discount) / 100
+      : Math.min(discount, total);
+
+  const subtotalAfterDiscount = total - discountAmount;
+
+  // Shipping cost: dynamic if options available, otherwise static fallback
+  const shippingCost =
+    shippingOptions.length > 0
+      ? (selectedShipping?.price ?? shippingOptions[0]?.price ?? STATIC_SHIPPING_COST)
+      : subtotalAfterDiscount >= STATIC_SHIPPING_THRESHOLD
+      ? 0
+      : STATIC_SHIPPING_COST;
+
+  const finalTotal = subtotalAfterDiscount + shippingCost;
   const isDocumentCnpj = isCnpj(formData.document);
 
   useEffect(() => {
@@ -74,6 +98,7 @@ function CheckoutContent() {
     }));
   }, [user]);
 
+  // ViaCEP address autofill
   useEffect(() => {
     const cepDigits = formData.shipping_zipcode.replace(/\D/g, "");
     if (cepDigits.length !== 8 || cepDigits === lastFetchedZip) return;
@@ -96,6 +121,48 @@ function CheckoutContent() {
     };
     fetchAddress();
   }, [formData.shipping_zipcode, lastFetchedZip]);
+
+  // Auto-calculate shipping when a valid CEP is entered (and different from cart calculation)
+  useEffect(() => {
+    const cepDigits = formData.shipping_zipcode.replace(/\D/g, "");
+    if (cepDigits.length !== 8) return;
+    if (cepDigits === lastCalcZip.current) return;
+    // If cart already has options for this CEP, reuse them
+    if (cepDigits === shippingZip && shippingOptions.length > 0) {
+      lastCalcZip.current = cepDigits;
+      return;
+    }
+
+    const calcShipping = async () => {
+      lastCalcZip.current = cepDigits;
+      setShippingCalcLoading(true);
+      try {
+        const res = await fetch("/api/shipping/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cep: cepDigits }),
+        });
+        if (!res.ok) return; // Fall back to static if API unavailable
+        const data = await res.json();
+        const options: ShippingOption[] = data.options ?? [];
+        if (options.length > 0) {
+          setShippingZip(cepDigits);
+          setShippingOptions(options);
+          // Keep current selection if valid, else auto-select cheapest
+          if (!selectedShipping || !options.find((o) => o.code === selectedShipping.code)) {
+            const cheapest = options.reduce((a, b) => (a.price <= b.price ? a : b));
+            setSelectedShipping(cheapest);
+          }
+        }
+      } catch {
+        // Silently fall back to static pricing
+      } finally {
+        setShippingCalcLoading(false);
+      }
+    };
+    calcShipping();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.shipping_zipcode]);
 
   const handleChange = (field: keyof CheckoutForm, value: string) => {
     if (field === "shipping_zipcode") setZipError("");
@@ -131,15 +198,17 @@ function CheckoutContent() {
           shipping_city: formData.shipping_city,
           shipping_state: formData.shipping_state,
           shipping_country: "BR",
+          shipping_service_code: selectedShipping?.code ?? null,
           items: items.reduce((sum, item) => sum + item.quantity, 0),
           total: finalTotal,
-          shipping_cost: shipping,
+          shipping_cost: shippingCost,
           items_detail: items.map((item) => ({
             product_id: item.product.id,
             name: item.product.name,
             quantity: item.quantity,
             price: salePrice(item.product),
           })),
+          coupon: coupon || undefined,
         }),
       });
 
@@ -159,7 +228,6 @@ function CheckoutContent() {
         return;
       }
 
-      // AbacatePay não configurada ou falhou — pedido criado sem pagamento online
       if (result?.payment?.pending_configuration || result?.payment?.error) {
         clearCart();
         router.push(`/meus-pedidos/${result.order.id}?payment=pending`);
@@ -229,7 +297,6 @@ function CheckoutContent() {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Checkout</h1>
         </div>
 
-        {/* Aviso de pagamento cancelado */}
         {paymentParam === "cancelled" && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -289,6 +356,11 @@ function CheckoutContent() {
                   <Input className={fieldClass} placeholder="00000-000" required value={formData.shipping_zipcode} onChange={(e) => handleChange("shipping_zipcode", e.target.value)} />
                   {addressLookupPending && <p className="text-xs text-muted-foreground">Buscando endereço...</p>}
                   {zipError && <p className="text-xs text-destructive">{zipError}</p>}
+                  {shippingCalcLoading && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Calculando frete...
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Rua</Label>
@@ -315,9 +387,46 @@ function CheckoutContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Shipping option selector (shown once options are available) */}
+              {shippingOptions.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                    Modalidade de entrega
+                  </p>
+                  {shippingOptions.map((opt) => (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setSelectedShipping(opt)}
+                      className={`w-full flex items-center justify-between text-sm px-3 py-2.5 rounded-xl border transition-colors ${
+                        selectedShipping?.code === opt.code
+                          ? "border-primary bg-primary/5 text-foreground"
+                          : "border-border hover:border-primary/40 text-muted-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {selectedShipping?.code === opt.code && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        )}
+                        <span className="font-medium">{opt.name}</span>
+                        {opt.deadlineDays > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            até {opt.deadlineDays} {opt.deadlineDays === 1 ? "dia útil" : "dias úteis"}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-semibold tabular-nums">
+                        {opt.price === 0 ? "Grátis" : `R$ ${opt.price.toFixed(2).replace(".", ",")}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Métodos de Pagamento (informativo) */}
+            {/* Pagamento */}
             <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
               <h2 className="font-semibold text-base">Pagamento</h2>
               <p className="text-sm text-muted-foreground">Você escolherá o método na próxima etapa, na página segura do AbacatePay.</p>
@@ -367,16 +476,27 @@ function CheckoutContent() {
               )}
               <div className="flex justify-between text-muted-foreground">
                 <span>Frete</span>
-                <span className={shipping === 0 ? "text-emerald-600 font-medium" : ""}>
-                  {shipping === 0 ? "Grátis" : `R$ ${shipping.toFixed(2).replace(".", ",")}`}
+                <span className={shippingCost === 0 ? "text-emerald-600 font-medium" : ""}>
+                  {shippingCalcLoading
+                    ? <span className="italic text-xs">calculando...</span>
+                    : shippingCost === 0
+                    ? "Grátis"
+                    : `R$ ${shippingCost.toFixed(2).replace(".", ",")}`}
                 </span>
               </div>
+              {selectedShipping && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-primary" />
+                  {selectedShipping.name}
+                  {selectedShipping.deadlineDays > 0 && ` · até ${selectedShipping.deadlineDays} dias úteis`}
+                </div>
+              )}
               <div className="flex justify-between font-bold text-base border-t border-border pt-3">
                 <span>Total</span><span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground text-center pt-1">
-              🔒 Pagamento processado com segurança pelo AbacatePay
+              Pagamento processado com segurança pelo AbacatePay
             </p>
           </div>
         </div>

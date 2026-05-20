@@ -12,7 +12,9 @@ export async function GET() {
       .order("name");
 
     if (error) throw error;
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch (error) {
     console.error("Error fetching categories:", error);
     return NextResponse.json(

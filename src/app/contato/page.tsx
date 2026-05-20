@@ -24,7 +24,7 @@ const contactInfo = [
   {
     icon: MapPin,
     label: "Endereço",
-    value: "Rua Senador Darcy Ribeiro 33, São Paulo - SP",
+    value: "Av. Dr. Décio de Toledo Leite, 100 - Jardim das Oliveiras, São Paulo - SP",
     href: null,
   },
 ];

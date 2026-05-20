@@ -1,5 +1,6 @@
 'use client';
 
+import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,14 +29,22 @@ const ProductCard = ({ product }: ProductCardProps) => {
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className="group relative bg-card border border-border rounded-2xl overflow-hidden h-full flex flex-col hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 transition-all duration-300"
     >
-      {/* Image */}
-      <Link href={`/produto/${product.id}`} className="flex-shrink-0 block relative">
-        <div className="aspect-square overflow-hidden bg-muted">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-[1.07] transition-transform duration-500 ease-out"
-          />
+      {/* Imagem */}
+      <Link href={`/produto/${product.id}`} className="flex-shrink-0 block relative" aria-label={`Ver ${product.name}`}>
+        <div className="aspect-square overflow-hidden bg-muted relative">
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-cover group-hover:scale-[1.07] transition-transform duration-500 ease-out"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <ShoppingCart className="h-8 w-8 text-muted-foreground/30" />
+            </div>
+          )}
         </div>
 
         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300" />
@@ -72,7 +81,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           )}
         </div>
 
-        {/* Buttons */}
+        {/* Botões */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -84,6 +93,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Button
             size="icon"
             variant="outline"
+            aria-label="Adicionar ao carrinho"
             className="h-9 w-9 rounded-xl shrink-0 border-border hover:border-primary/40 hover:text-primary transition-colors"
             onClick={() => addItem(product)}
           >

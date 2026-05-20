@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabaseServer";
 import { createOrder } from "@/lib/supabase/orders";
 import { getCurrentProfile, updateProfile } from "@/lib/supabase/auth";
 import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
+import { calculateShipping, isCorreiosConfigured } from "@/lib/correios";
 import type { Order } from "@/types/supabase";
 
 // ─── Constantes de negócio ────────────────────────────────────────────────────
@@ -94,8 +95,28 @@ function applyDiscount(subtotal: number, coupon: { type: "percent" | "fixed"; va
   return Math.min(coupon.value, subtotal);
 }
 
-function calculateShipping(subtotal: number, discountAmount: number): number {
+function staticShippingCost(subtotal: number, discountAmount: number): number {
   return subtotal - discountAmount >= FREE_SHIPPING_FROM ? 0 : SHIPPING_COST;
+}
+
+async function resolveShippingCost(
+  destinationZip: string,
+  serviceCode: string | null | undefined,
+  subtotal: number,
+  discountAmount: number
+): Promise<number> {
+  if (isCorreiosConfigured() && destinationZip && serviceCode) {
+    try {
+      const options = await calculateShipping(destinationZip);
+      const selected = options.find((o) => o.code === serviceCode);
+      if (selected) return selected.price;
+      // Service code not found in response — use cheapest available
+      if (options.length > 0) return Math.min(...options.map((o) => o.price));
+    } catch {
+      // Fall through to static calculation on any Correios error
+    }
+  }
+  return staticShippingCost(subtotal, discountAmount);
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -125,6 +146,7 @@ export async function POST(request: NextRequest) {
       phone,
       items_detail,
       coupon,
+      shipping_service_code,
     } = body;
 
     // Validate raw items array
@@ -157,7 +179,7 @@ export async function POST(request: NextRequest) {
     const subtotal      = validatedItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
     const couponData    = await fetchCoupon(supabase, coupon);
     const discountAmt   = applyDiscount(subtotal, couponData);
-    const shippingCost  = calculateShipping(subtotal, discountAmt);
+    const shippingCost  = await resolveShippingCost(shipping_zipcode, shipping_service_code, subtotal, discountAmt);
     const finalTotal    = Math.round((subtotal - discountAmt + shippingCost) * 100) / 100;
     const itemCount     = validatedItems.reduce((sum, i) => sum + i.quantity, 0);
 

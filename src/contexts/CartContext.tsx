@@ -12,6 +12,13 @@ export interface CartItem {
   };
 }
 
+export interface ShippingOption {
+  code: string;
+  name: string;
+  price: number;
+  deadlineDays: number;
+}
+
 interface CartContextType {
   items: CartItem[];
   addItem: (product: Product, quantity?: number, customization?: CartItem["customization"]) => void;
@@ -25,6 +32,13 @@ interface CartContextType {
   discount: number;
   discountType: "percent" | "fixed";
   applyCoupon: () => Promise<{ success: boolean; error?: string }>;
+  // Shipping
+  shippingZip: string;
+  setShippingZip: (zip: string) => void;
+  shippingOptions: ShippingOption[];
+  setShippingOptions: (options: ShippingOption[]) => void;
+  selectedShipping: ShippingOption | null;
+  setSelectedShipping: (option: ShippingOption | null) => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -39,6 +53,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>([]);
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
+  const [shippingZip, setShippingZip] = useState("");
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
 
   const addItem = useCallback((product: Product, quantity = 1, customization?: CartItem["customization"]) => {
     setItems((prev) => {
@@ -70,9 +88,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
     setDiscount(0);
     setCoupon("");
+    setShippingZip("");
+    setShippingOptions([]);
+    setSelectedShipping(null);
   }, []);
-
-  const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
 
   const applyCoupon = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     if (!coupon.trim()) {
@@ -100,7 +119,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, itemCount, coupon, setCoupon, discount, discountType, applyCoupon }}
+      value={{
+        items, addItem, removeItem, updateQuantity, clearCart,
+        total, itemCount,
+        coupon, setCoupon, discount, discountType, applyCoupon,
+        shippingZip, setShippingZip,
+        shippingOptions, setShippingOptions,
+        selectedShipping, setSelectedShipping,
+      }}
     >
       {children}
     </CartContext.Provider>

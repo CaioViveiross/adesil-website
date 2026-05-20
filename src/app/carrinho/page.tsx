@@ -2,17 +2,89 @@
 
 import Layout from "@/components/layout/Layout";
 import { useCart } from "@/contexts/CartContext";
+import type { ShippingOption } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag, MapPin, Truck, Loader2, CheckCircle2 } from "lucide-react";
 import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useState } from "react";
+
+const STATIC_SHIPPING_THRESHOLD = 300;
+const STATIC_SHIPPING_COST = 29.9;
+
+function formatCep(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+}
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, total, coupon, setCoupon, discount, applyCoupon } = useCart();
-  const shipping = total > 300 ? 0 : 29.90;
-  const discountAmount = (total * discount) / 100;
-  const finalTotal = total - discountAmount + shipping;
+  const {
+    items, removeItem, updateQuantity, total, coupon, setCoupon,
+    discount, discountType, applyCoupon,
+    shippingZip, setShippingZip,
+    shippingOptions, setShippingOptions,
+    selectedShipping, setSelectedShipping,
+  } = useCart();
+
+  const [cepInput, setCepInput] = useState(shippingZip || "");
+  const [calcLoading, setCalcLoading] = useState(false);
+  const [calcError, setCalcError] = useState("");
+
+  // Discount amount from coupon
+  const discountAmount =
+    discountType === "percent"
+      ? (total * discount) / 100
+      : Math.min(discount, total);
+
+  const subtotalAfterDiscount = total - discountAmount;
+
+  // Use Correios if options available, otherwise fall back to static rule
+  const shipping =
+    shippingOptions.length > 0
+      ? (selectedShipping?.price ?? null)
+      : subtotalAfterDiscount >= STATIC_SHIPPING_THRESHOLD
+      ? 0
+      : STATIC_SHIPPING_COST;
+
+  const finalTotal =
+    shipping !== null ? subtotalAfterDiscount + shipping : subtotalAfterDiscount;
+
+  const handleCalculateShipping = async () => {
+    const digits = cepInput.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setCalcError("Informe um CEP válido com 8 dígitos.");
+      return;
+    }
+    setCalcError("");
+    setCalcLoading(true);
+    setShippingOptions([]);
+    setSelectedShipping(null);
+    try {
+      const res = await fetch("/api/shipping/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cep: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCalcError(data.error ?? "Não foi possível calcular o frete.");
+        return;
+      }
+      const options: ShippingOption[] = data.options ?? [];
+      setShippingZip(digits);
+      setShippingOptions(options);
+      // Auto-select cheapest option
+      if (options.length > 0) {
+        const cheapest = options.reduce((a, b) => (a.price <= b.price ? a : b));
+        setSelectedShipping(cheapest);
+      }
+    } catch {
+      setCalcError("Erro ao calcular frete. Tente novamente.");
+    } finally {
+      setCalcLoading(false);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -131,8 +203,76 @@ export default function CartPage() {
               {discount > 0 && (
                 <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  Cupom aplicado: {discount}% de desconto
+                  Cupom aplicado:{" "}
+                  {discountType === "percent" ? `${discount}% de desconto` : `R$ ${discount.toFixed(2).replace(".", ",")} de desconto`}
                 </p>
+              )}
+            </div>
+
+            {/* Shipping Calculator */}
+            <div className="space-y-3 border-t border-border pt-4">
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                Calcular frete
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={cepInput}
+                    onChange={(e) => setCepInput(formatCep(e.target.value))}
+                    onKeyDown={(e) => e.key === "Enter" && handleCalculateShipping()}
+                    placeholder="00000-000"
+                    maxLength={9}
+                    className="w-full h-10 pl-8 pr-3 border border-border rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCalculateShipping}
+                  disabled={calcLoading}
+                  className="h-10 rounded-xl px-4 font-semibold shrink-0"
+                >
+                  {calcLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Calcular"}
+                </Button>
+              </div>
+
+              {calcError && (
+                <p className="text-xs text-destructive">{calcError}</p>
+              )}
+
+              {/* Shipping options */}
+              {shippingOptions.length > 0 && (
+                <div className="space-y-2">
+                  {shippingOptions.map((opt) => (
+                    <button
+                      key={opt.code}
+                      onClick={() => setSelectedShipping(opt)}
+                      className={`w-full flex items-center justify-between text-sm px-3 py-2.5 rounded-xl border transition-colors ${
+                        selectedShipping?.code === opt.code
+                          ? "border-primary bg-primary/5 text-foreground"
+                          : "border-border hover:border-primary/40 text-muted-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {selectedShipping?.code === opt.code && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        )}
+                        <span className="font-medium">{opt.name}</span>
+                        {opt.deadlineDays > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            até {opt.deadlineDays} {opt.deadlineDays === 1 ? "dia útil" : "dias úteis"}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-semibold tabular-nums">
+                        {opt.price === 0 ? "Grátis" : `R$ ${opt.price.toFixed(2).replace(".", ",")}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -144,20 +284,34 @@ export default function CartPage() {
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-600">
-                  <span>Desconto ({discount}%)</span>
+                  <span>
+                    Desconto{" "}
+                    {discountType === "percent" ? `(${discount}%)` : ""}
+                  </span>
                   <span>− R$ {discountAmount.toFixed(2).replace(".", ",")}</span>
                 </div>
               )}
               <div className="flex justify-between text-muted-foreground">
                 <span>Frete</span>
                 <span className={shipping === 0 ? "text-emerald-600 font-medium" : "text-foreground"}>
-                  {shipping === 0 ? "Grátis" : `R$ ${shipping.toFixed(2).replace(".", ",")}`}
+                  {shipping === null
+                    ? <span className="italic text-xs">calcule acima</span>
+                    : shipping === 0
+                    ? "Grátis"
+                    : `R$ ${shipping.toFixed(2).replace(".", ",")}`}
                 </span>
               </div>
               <div className="flex justify-between font-bold text-base border-t border-border pt-3 mt-1">
                 <span>Total</span>
-                <span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
+                <span>
+                  {shipping === null
+                    ? `R$ ${subtotalAfterDiscount.toFixed(2).replace(".", ",")}*`
+                    : `R$ ${finalTotal.toFixed(2).replace(".", ",")}`}
+                </span>
               </div>
+              {shipping === null && (
+                <p className="text-[11px] text-muted-foreground">* Total sem frete. Calcule o frete acima.</p>
+              )}
             </div>
 
             <Link href="/checkout" className="block">
@@ -166,9 +320,13 @@ export default function CartPage() {
               </Button>
             </Link>
 
-            {total <= 300 && (
+            {shippingOptions.length === 0 && subtotalAfterDiscount < STATIC_SHIPPING_THRESHOLD && (
               <p className="text-xs text-center text-muted-foreground">
-                Faltam <span className="font-semibold text-foreground">R$ {(300 - total).toFixed(2).replace(".", ",")}</span> para frete grátis
+                Faltam{" "}
+                <span className="font-semibold text-foreground">
+                  R$ {(STATIC_SHIPPING_THRESHOLD - subtotalAfterDiscount).toFixed(2).replace(".", ",")}
+                </span>{" "}
+                para frete grátis
               </p>
             )}
           </div>
