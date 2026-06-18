@@ -149,7 +149,7 @@ export interface TrackingEvent {
 
 export async function trackObject(trackingCode: string): Promise<TrackingEvent[]> {
   const config = await getCorreiosConfig();
-  if (!config.username || !config.password || !config.postalCard) {
+  if (!config.username || !config.accessCode || !config.postalCard) {
     throw new Error("Credenciais dos Correios não configuradas");
   }
 
