@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Archive, MailOpen, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { AdminContentLoader } from "@/components/admin/AdminLoader";
 
 interface ContactMessage {
   id: number;
@@ -115,9 +116,7 @@ export default function AdminContactPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary" />
-          </div>
+          <AdminContentLoader />
         ) : (
           <Table>
             <TableHeader>

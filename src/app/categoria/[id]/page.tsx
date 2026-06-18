@@ -6,6 +6,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://adesilprint.com.br";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -52,7 +53,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CategoryPage({ params }: Props) {
+export default async function CategoryPage({ params, searchParams }: Props) {
   const { id: slug } = await params;
-  return <CategoryPageClient slug={slug} />;
+  const { q } = await searchParams;
+  return <CategoryPageClient slug={slug} initialSearch={q ?? ""} />;
 }

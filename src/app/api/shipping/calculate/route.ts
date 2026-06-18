@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "CEP inválido" }, { status: 400 });
     }
 
-    if (!isCorreiosConfigured()) {
+    if (!(await isCorreiosConfigured())) {
       return NextResponse.json(
         { error: "Cálculo de frete não configurado" },
         { status: 503 }

@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Tag } from "lucide-react";
 import { toast } from "sonner";
+import { AdminContentLoader } from "@/components/admin/AdminLoader";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface Coupon {
   id: number;
@@ -36,6 +38,7 @@ export default function CouponsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<Coupon>>(empty());
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Coupon | null>(null);
 
   const load = async () => {
     const res = await fetch("/api/admin/coupons");
@@ -83,7 +86,6 @@ export default function CouponsPage() {
   };
 
   const remove = async (c: Coupon) => {
-    if (!confirm(`Excluir cupom "${c.code}"?`)) return;
     await fetch(`/api/admin/coupons/${c.id}`, { method: "DELETE" });
     toast.success("Cupom excluído");
     await load();
@@ -106,9 +108,7 @@ export default function CouponsPage() {
 
       <div className="bg-card rounded-2xl border p-6">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary" />
-          </div>
+          <AdminContentLoader />
         ) : (
           <Table>
             <TableHeader>
@@ -154,7 +154,7 @@ export default function CouponsPage() {
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(c)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => remove(c)}>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -255,6 +255,13 @@ export default function CouponsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`Excluir cupom "${deleteTarget?.code}"?`}
+        description="O cupom será removido permanentemente e não poderá ser recuperado."
+        onConfirm={() => { remove(deleteTarget!); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AdminLayout>
   );
 }

@@ -4,11 +4,8 @@ import { createOrder } from "@/lib/supabase/orders";
 import { getCurrentProfile, updateProfile } from "@/lib/supabase/auth";
 import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
 import { calculateShipping, isCorreiosConfigured } from "@/lib/correios";
+import { getSettings } from "@/lib/supabase/settings";
 import type { Order } from "@/types/supabase";
-
-// ─── Constantes de negócio ────────────────────────────────────────────────────
-const SHIPPING_COST      = 29.9;
-const FREE_SHIPPING_FROM = 300;
 
 async function fetchCoupon(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -95,28 +92,30 @@ function applyDiscount(subtotal: number, coupon: { type: "percent" | "fixed"; va
   return Math.min(coupon.value, subtotal);
 }
 
-function staticShippingCost(subtotal: number, discountAmount: number): number {
-  return subtotal - discountAmount >= FREE_SHIPPING_FROM ? 0 : SHIPPING_COST;
-}
-
 async function resolveShippingCost(
   destinationZip: string,
   serviceCode: string | null | undefined,
   subtotal: number,
-  discountAmount: number
+  discountAmount: number,
 ): Promise<number> {
-  if (isCorreiosConfigured() && destinationZip && serviceCode) {
+  // Free shipping threshold takes priority over Correios price
+  const settings = await getSettings();
+  const freeAbove = parseFloat(settings.get("shipping_free_above") ?? "");
+  if (!isNaN(freeAbove) && freeAbove > 0 && subtotal - discountAmount >= freeAbove) {
+    return 0;
+  }
+
+  if ((await isCorreiosConfigured()) && destinationZip && serviceCode) {
     try {
       const options = await calculateShipping(destinationZip);
       const selected = options.find((o) => o.code === serviceCode);
       if (selected) return selected.price;
-      // Service code not found in response — use cheapest available
       if (options.length > 0) return Math.min(...options.map((o) => o.price));
     } catch {
-      // Fall through to static calculation on any Correios error
+      // Correios unavailable — shipping will be R$0
     }
   }
-  return staticShippingCost(subtotal, discountAmount);
+  return 0;
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────

@@ -10,12 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import type { Category } from "@/types/supabase";
+import { AdminPageLoader } from "@/components/admin/AdminLoader";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({ name: "", description: "" });
@@ -61,13 +64,9 @@ export default function AdminCategoriesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
-
     try {
       const response = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        await fetchData();
-      }
+      if (response.ok) await fetchData();
     } catch (error) {
       console.error('Error deleting category:', error);
     }
@@ -84,15 +83,7 @@ export default function AdminCategoriesPage() {
     setFormData({ name: "", description: "" });
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  if (loading) return <AdminPageLoader />;
 
   return (
     <AdminLayout>
@@ -174,7 +165,7 @@ export default function AdminCategoriesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDelete(category.id?.toString() || '')}
+                        onClick={() => setDeleteTarget(category.id?.toString() || '')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -192,6 +183,13 @@ export default function AdminCategoriesPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir categoria?"
+        description="Produtos vinculados perderão esta categoria. Esta ação não pode ser desfeita."
+        onConfirm={() => { handleDelete(deleteTarget!); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AdminLayout>
   );
 }

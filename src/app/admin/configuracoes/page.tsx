@@ -1,263 +1,324 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Search, UserCheck, UserX, ShoppingBag, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { statusLabels } from "@/types/supabase";
-import type { Profile, UserRole, Order } from "@/types/supabase";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Truck, Megaphone, Gift,
+  Check, Loader2,
+} from "lucide-react";
+import { AdminPageLoader } from "@/components/admin/AdminLoader";
+import { toast } from "sonner";
+import type { Setting } from "@/lib/supabase/settings";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FieldDef {
+  key: string;
+  label: string;
+  placeholder?: string;
+  type?: "text" | "number" | "email" | "textarea";
+  hint?: string;
+}
+
+// ─── Section data ─────────────────────────────────────────────────────────────
+
+const CORREIOS_CREDENTIAL_FIELDS: FieldDef[] = [
+  { key: "correios_username",    label: "Usuário (e-mail ou CNPJ)", placeholder: "financeiro@empresa.com.br", hint: "Login do Meu Correios vinculado ao contrato" },
+  { key: "correios_access_code", label: "Código de Acesso da API",  placeholder: "Gerado em cws.correios.com.br/chaves-acesso", hint: "Não é a senha do Meu Correios — é a chave gerada no portal CWS" },
+  { key: "correios_postal_card", label: "Cartão de Postagem",       placeholder: "Ex: 0079942288", hint: "Número do cartão de postagem do contrato (10 dígitos)" },
+];
+
+const CORREIOS_FIELDS: FieldDef[] = [
+  { key: "correios_origin_zip",   label: "CEP de Origem",      placeholder: "Ex: 01310100", hint: "CEP do remetente, sem hífen" },
+  { key: "correios_weight_grams", label: "Peso do Pacote (g)", placeholder: "Ex: 300",      type: "number", hint: "Peso padrão em gramas" },
+];
+
+
+const BANNER_COLORS = [
+  { label: "Padrão (marca)",  value: "" },
+  { label: "Preto",           value: "#18181b" },
+  { label: "Amarelo",         value: "#eab308" },
+  { label: "Verde",           value: "#16a34a" },
+  { label: "Vermelho",        value: "#dc2626" },
+];
+
+function hexLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+
+// ─── Field component ──────────────────────────────────────────────────────────
+
+function SettingField({
+  def,
+  value,
+  saving,
+  onChange,
+  onSave,
+}: {
+  def: FieldDef;
+  value: string;
+  saving: boolean;
+  onChange: (v: string) => void;
+  onSave: () => void;
+}) {
+  const isTextarea = def.type === "textarea";
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm">{def.label}</Label>
+      <div className="flex gap-2 items-start">
+        {isTextarea ? (
+          <Textarea
+            placeholder={def.placeholder}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="text-sm resize-none"
+            rows={3}
+          />
+        ) : (
+          <Input
+            type={def.type ?? "text"}
+            placeholder={def.placeholder}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="font-mono text-sm"
+          />
+        )}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="shrink-0 h-10 w-10 p-0 mt-0"
+          onClick={onSave}
+          disabled={saving}
+          title="Salvar"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+      {def.hint && <p className="text-xs text-muted-foreground">{def.hint}</p>}
+    </div>
+  );
+}
+
+function BannerColorPicker({
+  selected,
+  saving,
+  onSelect,
+}: {
+  selected: string;
+  saving: boolean;
+  onSelect: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">Cor do banner</p>
+      <div className="flex flex-wrap gap-2.5">
+        {BANNER_COLORS.map((c) => {
+          const active = selected === c.value;
+          return (
+            <button
+              key={c.value || "default"}
+              type="button"
+              title={c.label}
+              disabled={saving}
+              onClick={() => onSelect(c.value)}
+              className={`relative w-8 h-8 rounded-full border-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                active ? "border-foreground scale-110 shadow-md" : "border-transparent hover:scale-105 hover:border-muted-foreground/40"
+              }`}
+              style={c.value ? { backgroundColor: c.value } : undefined}
+            >
+              {!c.value && (
+                <span className="absolute inset-0 rounded-full bg-primary flex items-center justify-center">
+                  {active && <Check className="h-3.5 w-3.5 text-primary-foreground" />}
+                </span>
+              )}
+              {c.value && active && (
+                <Check
+                  className="h-3.5 w-3.5 absolute inset-0 m-auto drop-shadow"
+                  style={{ color: hexLuminance(c.value) > 0.5 ? "#000" : "#fff" }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">Clique para aplicar — salvo automaticamente</p>
+    </div>
+  );
+}
+
+function SectionCard({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-card rounded-2xl border p-6 space-y-5">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className="h-5 w-5 text-primary" />
+          <h2 className="text-base font-semibold">{title}</h2>
+        </div>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminSettingsPage() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [values, setValues]   = useState<Record<string, string>>({});
+  const [saving, setSaving]   = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
 
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyCustomer, setHistoryCustomer] = useState<Profile | null>(null);
-  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  const fetchProfiles = async () => {
-    const response = await fetch('/api/admin/profiles?limit=100');
-    if (response.ok) setProfiles(await response.json());
+  const fetchSettings = useCallback(async () => {
+    const res = await fetch("/api/admin/settings");
+    if (!res.ok) return;
+    const data: Setting[] = await res.json();
+    const map: Record<string, string> = {};
+    data.forEach((s) => { map[s.key] = s.value ?? ""; });
+    setValues(map);
     setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  const save = async (key: string, overrideValue?: string) => {
+    const val = overrideValue ?? values[key] ?? "";
+    setSaving((p) => ({ ...p, [key]: true }));
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value: val }),
+      });
+      if (res.ok) {
+        toast.success("Salvo");
+      } else {
+        toast.error("Erro ao salvar");
+      }
+    } catch {
+      toast.error("Erro ao salvar");
+    } finally {
+      setSaving((p) => ({ ...p, [key]: false }));
+    }
   };
 
-  useEffect(() => { fetchProfiles(); }, []);
+  const set = (key: string, val: string) =>
+    setValues((p) => ({ ...p, [key]: val }));
 
-  const filteredProfiles = profiles.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const bannerActive = values["banner_active"] === "true";
 
-  const handleRoleChange = async (profileId: string, newRole: UserRole) => {
-    const response = await fetch(`/api/admin/profiles/${profileId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: newRole }),
-    });
-    if (response.ok) fetchProfiles();
+  const toggleBanner = async (checked: boolean) => {
+    const val = String(checked);
+    set("banner_active", val);
+    await save("banner_active", val);
   };
 
-  const handleDeleteProfile = async (profileId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este perfil?')) return;
-    const response = await fetch(`/api/admin/profiles/${profileId}`, { method: 'DELETE' });
-    if (response.ok) fetchProfiles();
+  const selectBannerColor = async (color: string) => {
+    set("banner_color", color);
+    await save("banner_color", color);
   };
 
-  const openHistory = async (profile: Profile) => {
-    setHistoryCustomer(profile);
-    setHistoryOrders([]);
-    setHistoryOpen(true);
-    setHistoryLoading(true);
-    const res = await fetch(`/api/orders?customer_id=${profile.id}&limit=50`);
-    if (res.ok) setHistoryOrders(await res.json());
-    setHistoryLoading(false);
-  };
-
-  const totalSpent = historyOrders
-    .filter((o) => o.status !== "cancelled" && o.status !== "failed")
-    .reduce((s, o) => s + Number(o.total), 0);
-
-  const fmt = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      </AdminLayout>
-    );
-  }
+  if (loading) return <AdminPageLoader />;
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Configurações do Sistema</h1>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">Configurações</h1>
       </div>
 
-      <div className="space-y-8">
-        <div className="bg-card rounded-2xl border p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <UserCheck className="h-5 w-5" />
-            <h2 className="text-lg font-semibold">Gerenciamento de Usuários</h2>
-          </div>
+      <div className="space-y-6 max-w-2xl">
 
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou e-mail..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        {/* ── Frete: Correios ──────────────────────────────────────── */}
+        <SectionCard
+          icon={Truck}
+          title="Correios — Cálculo de Frete"
+          description="Parâmetros usados no cálculo dinâmico de PAC e SEDEX."
+        >
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Função</TableHead>
-                  <TableHead>Cadastro</TableHead>
-                  <TableHead className="w-28">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProfiles.map((profile) => (
-                  <TableRow key={profile.id}>
-                    <TableCell className="font-medium">{profile.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{profile.email}</TableCell>
-                    <TableCell>
-                      <Select
-                        value={profile.role}
-                        onValueChange={(v) => handleRoleChange(profile.id, v as UserRole)}
-                      >
-                        <SelectTrigger className="w-32">
-                          <Badge variant={profile.role === 'admin' ? 'default' : 'secondary'}>
-                            {profile.role === 'admin' ? 'Admin' : 'Cliente'}
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="customer">Cliente</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {new Date(profile.created_at || '').toLocaleDateString("pt-BR")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm" variant="ghost" className="h-8 w-8 p-0" title="Histórico de compras"
-                          onClick={() => openHistory(profile)}
-                        >
-                          <ShoppingBag className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost" className="h-8 w-8 p-0"
-                          onClick={() => handleDeleteProfile(profile.id)}
-                          disabled={profile.role === 'admin' && filteredProfiles.filter((p) => p.role === 'admin').length === 1}
-                        >
-                          <UserX className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {filteredProfiles.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado.</div>
-          )}
-        </div>
-
-        <div className="bg-card rounded-2xl border p-6">
-          <h2 className="text-lg font-semibold mb-4">Informações do Sistema</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: "Total de Usuários", value: profiles.length },
-              { label: "Administradores",   value: profiles.filter((p) => p.role === "admin").length },
-              { label: "Clientes",          value: profiles.filter((p) => p.role === "customer").length },
-              { label: "Data Atual",        value: new Date().toLocaleDateString("pt-BR") },
-            ].map(({ label, value }) => (
-              <div key={label} className="text-center p-4 rounded-xl bg-muted/40">
-                <div className="text-2xl font-bold text-primary">{value}</div>
-                <div className="text-sm text-muted-foreground mt-0.5">{label}</div>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {CORREIOS_FIELDS.map((def) => (
+              <SettingField
+                key={def.key}
+                def={def}
+                value={values[def.key] ?? ""}
+                saving={!!saving[def.key]}
+                onChange={(v) => set(def.key, v)}
+                onSave={() => save(def.key)}
+              />
             ))}
           </div>
-        </div>
+        </SectionCard>
+
+        {/* ── Frete grátis ─────────────────────────────────────────── */}
+        <SectionCard
+          icon={Gift}
+          title="Frete Grátis"
+          description="Pedidos acima deste valor ganham frete grátis automaticamente. Deixe vazio para desativar."
+        >
+          <SettingField
+            def={{ key: "shipping_free_above", label: "Frete grátis acima de (R$)", placeholder: "Ex: 300.00", type: "number", hint: "Valor mínimo do subtotal para isenção de frete" }}
+            value={values["shipping_free_above"] ?? ""}
+            saving={!!saving["shipping_free_above"]}
+            onChange={(v) => set("shipping_free_above", v)}
+            onSave={() => save("shipping_free_above")}
+          />
+        </SectionCard>
+
+        {/* ── Banner global ─────────────────────────────────────────── */}
+        <SectionCard
+          icon={Megaphone}
+          title="Aviso Global (Banner)"
+          description="Faixa exibida no topo do site para todos os visitantes."
+        >
+          <SettingField
+            def={{ key: "banner_text", label: "Texto do aviso", placeholder: "🎉 Frete grátis acima de R$ 300!", type: "textarea" }}
+            value={values["banner_text"] ?? ""}
+            saving={!!saving["banner_text"]}
+            onChange={(v) => set("banner_text", v)}
+            onSave={() => save("banner_text")}
+          />
+
+          <BannerColorPicker
+            selected={values["banner_color"] ?? ""}
+            saving={!!saving["banner_color"]}
+            onSelect={selectBannerColor}
+          />
+
+          <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Exibir banner</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {bannerActive ? "Banner ativo — visível no site" : "Banner desativado"}
+              </p>
+            </div>
+            <Switch
+              checked={bannerActive}
+              onCheckedChange={toggleBanner}
+              disabled={!!saving["banner_active"]}
+            />
+          </div>
+        </SectionCard>
+
       </div>
-
-      {/* Modal histórico de compras */}
-      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              Histórico de {historyCustomer?.name}
-            </DialogTitle>
-          </DialogHeader>
-
-          {historyLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary" />
-            </div>
-          ) : (
-            <div className="space-y-4 pt-1">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "Pedidos", value: historyOrders.length },
-                  { label: "Total gasto", value: fmt(totalSpent) },
-                  { label: "Ticket médio", value: historyOrders.length > 0 ? fmt(totalSpent / historyOrders.length) : "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-xl border bg-card p-3 text-center">
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                    <p className="font-bold text-sm mt-0.5">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {historyOrders.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Pedido</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="w-8" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {historyOrders.map((order) => {
-                      const info = statusLabels[order.status] ?? { label: order.status, color: "bg-muted text-muted-foreground" };
-                      return (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            #{String(order.id).slice(0, 8).toUpperCase()}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {order.ordered_at
-                              ? new Date(order.ordered_at).toLocaleDateString("pt-BR")
-                              : "—"}
-                          </TableCell>
-                          <TableCell>
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${info.color}`}>
-                              {info.label}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold tabular-nums text-sm">
-                            {fmt(Number(order.total))}
-                          </TableCell>
-                          <TableCell>
-                            <a href={`/admin/pedidos/${order.id}`} target="_blank" rel="noopener noreferrer">
-                              <ChevronRight className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
-                            </a>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }

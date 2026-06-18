@@ -1,36 +1,54 @@
-
+import { getSettings } from "@/lib/supabase/settings";
 
 const BASE_URL = "https://api.correios.com.br";
 
-// Default service codes for contracts (sem contrato: PAC=04510, SEDEX=04014)
-const SERVICES = [
-  { code: process.env.CORREIOS_PAC_CODE || "03298", name: "PAC" },
-  { code: process.env.CORREIOS_SEDEX_CODE || "03220", name: "SEDEX" },
-];
+let tokenCache: { value: string; expiresAt: number; forUser: string } | null = null;
 
-// Default package dimensions for sticker/label shipments
-const PACKAGE = {
-  weightGrams: parseInt(process.env.CORREIOS_WEIGHT_GRAMS || "300", 10),
-  comprimento: "16", // cm
-  largura: "11",     // cm
-  altura: "2",       // cm
-  tpObjeto: "1",     // 1=envelope, 2=caixa, 3=cilindro
-};
+export function invalidateTokenCache() {
+  tokenCache = null;
+}
 
-let tokenCache: { value: string; expiresAt: number } | null = null;
+interface CorreiosConfig {
+  username:   string;
+  accessCode: string; // "Código de Acesso da API" — NOT the Meu Correios account password
+  postalCard: string;
+  originZip:  string;
+  pacCode:    string;
+  sedexCode:  string;
+  weightGrams: number;
+}
 
-async function authenticate(): Promise<string> {
-  if (tokenCache && Date.now() < tokenCache.expiresAt) return tokenCache.value;
+async function getCorreiosConfig(): Promise<CorreiosConfig> {
+  const settings = await getSettings();
+  const s = (key: string): string | null => settings.get(key) ?? null;
 
-  const username = process.env.CORREIOS_USERNAME;
-  const password = process.env.CORREIOS_PASSWORD;
-  const postalCard = process.env.CORREIOS_POSTAL_CARD;
+  return {
+    // Credentials always come from env — never stored in the DB
+    username:   process.env.CORREIOS_USERNAME    ?? "",
+    accessCode: process.env.CORREIOS_ACCESS_CODE ?? "",
+    postalCard: process.env.CORREIOS_POSTAL_CARD ?? "",
+    // Operational config: DB value takes priority, env var as fallback
+    originZip:   s("correios_origin_zip")  ?? process.env.CORREIOS_ORIGIN_ZIP ?? "",
+    pacCode:     process.env.CORREIOS_PAC_CODE   ?? "03298",
+    sedexCode:   process.env.CORREIOS_SEDEX_CODE ?? "03220",
+    weightGrams: parseInt(s("correios_weight_grams") ?? process.env.CORREIOS_WEIGHT_GRAMS ?? "300", 10),
+  };
+}
 
-  if (!username || !password || !postalCard) {
-    throw new Error("Correios credentials not configured (CORREIOS_USERNAME, CORREIOS_PASSWORD, CORREIOS_POSTAL_CARD)");
+export async function isCorreiosConfigured(): Promise<boolean> {
+  const config = await getCorreiosConfig();
+  return !!(config.username && config.accessCode && config.postalCard && config.originZip);
+}
+
+async function authenticate(config: CorreiosConfig): Promise<string> {
+  const cacheKey = `${config.username}:${config.postalCard}`;
+
+  if (tokenCache && tokenCache.forUser === cacheKey && Date.now() < tokenCache.expiresAt) {
+    return tokenCache.value;
   }
 
-  const credentials = Buffer.from(`${username}:${password}`).toString("base64");
+  // Basic auth uses login (CNPJ or email) + Código de Acesso da API (not Meu Correios password)
+  const credentials = Buffer.from(`${config.username}:${config.accessCode}`).toString("base64");
 
   const res = await fetch(`${BASE_URL}/token/v1/autentica/cartaopostagem`, {
     method: "POST",
@@ -38,7 +56,7 @@ async function authenticate(): Promise<string> {
       Authorization: `Basic ${credentials}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ numero: postalCard }),
+    body: JSON.stringify({ numero: config.postalCard }),
   });
 
   if (!res.ok) {
@@ -47,8 +65,8 @@ async function authenticate(): Promise<string> {
   }
 
   const data = await res.json();
-  // Tokens expire in 1 hour; cache for 50 minutes to avoid races
-  tokenCache = { value: data.token, expiresAt: Date.now() + 50 * 60 * 1000 };
+  // Tokens expire in 24h; cache for 23h to avoid races
+  tokenCache = { value: data.token, expiresAt: Date.now() + 23 * 60 * 60 * 1000, forUser: cacheKey };
   return data.token;
 }
 
@@ -59,65 +77,114 @@ export interface ShippingOption {
   deadlineDays: number;
 }
 
-export function isCorreiosConfigured(): boolean {
-  return !!(
-    process.env.CORREIOS_USERNAME &&
-    process.env.CORREIOS_PASSWORD &&
-    process.env.CORREIOS_POSTAL_CARD &&
-    process.env.CORREIOS_ORIGIN_ZIP
-  );
-}
+export async function calculateShipping(destinationZip: string): Promise<ShippingOption[]> {
+  const config = await getCorreiosConfig();
+  if (!config.originZip) throw new Error("CEP de origem não configurado");
 
-export async function calculateShipping(
-  destinationZip: string
-): Promise<ShippingOption[]> {
-  const originZip = process.env.CORREIOS_ORIGIN_ZIP;
-  if (!originZip) throw new Error("CORREIOS_ORIGIN_ZIP not configured");
-
-  const token = await authenticate();
-  const origin = originZip.replace(/\D/g, "");
+  const token = await authenticate(config);
+  const origin = config.originZip.replace(/\D/g, "");
   const destination = destinationZip.replace(/\D/g, "");
 
+  const services = [
+    { code: config.pacCode,   name: "PAC"   },
+    { code: config.sedexCode, name: "SEDEX" },
+  ];
+
+  // POST /preco/v1/nacional accepts up to 100 services in one call
+  const body = {
+    idLote: "1",
+    parametrosProduto: services.map((s, i) => ({
+      nuRequisicao:  String(i + 1),
+      coProduto:     s.code,
+      psObjeto:      String(config.weightGrams),
+      tpObjeto:      "2",   // 2 = Caixa/Pacote
+      comprimento:   "16",
+      largura:       "11",
+      altura:        "5",
+      cepOrigem:     origin,
+      cepDestino:    destination,
+      nVlDeclarado:  "0",
+    })),
+  };
+
+  let rawItems: Record<string, unknown>[] = [];
+  try {
+    const res = await fetch(`${BASE_URL}/preco/v1/nacional`, {
+      method:  "POST",
+      headers: {
+        Authorization:  `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body:   JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    rawItems = Array.isArray(data) ? data : (Array.isArray(data?.parametrosProduto) ? data.parametrosProduto : []);
+  } catch {
+    return [];
+  }
+
   const results: ShippingOption[] = [];
-
-  for (const service of SERVICES) {
-    try {
-      const params = new URLSearchParams({
-        coProduto: service.code,
-        psObjeto: String(PACKAGE.weightGrams),
-        tpObjeto: PACKAGE.tpObjeto,
-        comprimento: PACKAGE.comprimento,
-        largura: PACKAGE.largura,
-        altura: PACKAGE.altura,
-        cepOrigem: origin,
-        cepDestino: destination,
-        nVlDeclarado: "0",
-      });
-
-      const res = await fetch(`${BASE_URL}/preco/v1/nacional?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        // Timeout via AbortController — Correios API can be slow
-        signal: AbortSignal.timeout(8000),
-      });
-
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      // Response may be array or single object depending on contract type
-      const item = Array.isArray(data) ? data[0] : data;
-
-      if (!item || item.msgErro) continue;
-
-      const price = parseFloat(String(item.pcFinal ?? item.vlfim ?? "0").replace(",", "."));
-      const days = parseInt(String(item.prazoEntrega ?? item.entrega?.prazoEntrega ?? "0"), 10);
-
-      if (!price) continue;
-
-      results.push({ code: service.code, name: service.name, price, deadlineDays: days });
-    } catch {
-      // Skip failed services silently — partial results are acceptable
-    }
+  for (const item of rawItems) {
+    if (item.txErro || item.msgErro) continue;
+    const nuReq = Number(item.nuRequisicao ?? item.nuReq ?? 0) - 1;
+    const svc   = services[nuReq] ?? services.find(s => s.code === String(item.coProduto ?? ""));
+    if (!svc) continue;
+    const price = parseFloat(String(item.pcFinal ?? "0").replace(",", "."));
+    const days  = parseInt(String(item.prazoEntrega ?? 0), 10);
+    if (!price) continue;
+    results.push({ code: svc.code, name: svc.name, price, deadlineDays: days });
   }
 
   return results;
+}
+
+export interface TrackingEvent {
+  date: string;
+  time: string;
+  location: string;
+  description: string;
+}
+
+export async function trackObject(trackingCode: string): Promise<TrackingEvent[]> {
+  const config = await getCorreiosConfig();
+  if (!config.username || !config.password || !config.postalCard) {
+    throw new Error("Credenciais dos Correios não configuradas");
+  }
+
+  const token = await authenticate(config);
+
+  const params = new URLSearchParams({
+    coPedido:           trackingCode,
+    resultadoPorObjeto: "U",
+    langue:             "101",
+    categoria:          "ENCOMENDA",
+  });
+
+  const res = await fetch(`${BASE_URL}/rastro/v1/objetos?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) throw new Error(`Correios tracking ${res.status}`);
+
+  const data = await res.json();
+  const objeto = Array.isArray(data?.objetos) ? data.objetos[0] : null;
+  if (!objeto) return [];
+
+  return (objeto.eventos ?? []).map((e: {
+    dtHrCriado?: string;
+    descricao?: string;
+    unidade?: { endereco?: { municipio?: string; uf?: string } };
+  }) => {
+    const [date, timePart] = (e.dtHrCriado ?? "").split("T");
+    const loc = e.unidade?.endereco;
+    return {
+      date:        date ?? "",
+      time:        (timePart ?? "").slice(0, 5),
+      location:    loc ? [loc.municipio, loc.uf].filter(Boolean).join(", ") : "",
+      description: e.descricao ?? "",
+    };
+  });
 }

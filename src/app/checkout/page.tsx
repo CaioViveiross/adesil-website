@@ -38,8 +38,6 @@ const initialFormState: CheckoutForm = {
 const isCnpj = (value: string) => value.replace(/\D/g, "").length === 14;
 const fieldClass = "h-11 rounded-xl text-sm";
 
-const STATIC_SHIPPING_COST = 29.9;
-const STATIC_SHIPPING_THRESHOLD = 300;
 
 function CheckoutContent() {
   const {
@@ -47,6 +45,7 @@ function CheckoutContent() {
     shippingOptions, setShippingOptions,
     selectedShipping, setSelectedShipping,
     shippingZip, setShippingZip,
+    freeShippingThreshold,
   } = useCart();
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -69,15 +68,29 @@ function CheckoutContent() {
 
   const subtotalAfterDiscount = total - discountAmount;
 
-  // Shipping cost: dynamic if options available, otherwise static fallback
-  const shippingCost =
-    shippingOptions.length > 0
-      ? (selectedShipping?.price ?? shippingOptions[0]?.price ?? STATIC_SHIPPING_COST)
-      : subtotalAfterDiscount >= STATIC_SHIPPING_THRESHOLD
-      ? 0
-      : STATIC_SHIPPING_COST;
+  const qualifiesFreeShipping =
+    freeShippingThreshold !== null && subtotalAfterDiscount >= freeShippingThreshold;
 
-  const finalTotal = subtotalAfterDiscount + shippingCost;
+  const shippingCost = qualifiesFreeShipping
+    ? 0
+    : shippingOptions.length > 0
+    ? (selectedShipping?.price ?? shippingOptions[0]?.price ?? 0)
+    : 0;
+
+  const freeShippingRemaining =
+    freeShippingThreshold !== null && !qualifiesFreeShipping
+      ? freeShippingThreshold - subtotalAfterDiscount
+      : 0;
+  const freeShippingProgress =
+    freeShippingThreshold !== null
+      ? Math.min((subtotalAfterDiscount / freeShippingThreshold) * 100, 100)
+      : 0;
+
+  const zipDigits = formData.shipping_zipcode.replace(/\D/g, "");
+  const zipComplete = zipDigits.length === 8;
+  const shippingKnown = qualifiesFreeShipping || (zipComplete && !shippingCalcLoading);
+
+  const finalTotal = subtotalAfterDiscount + (shippingKnown ? shippingCost : 0);
   const isDocumentCnpj = isCnpj(formData.document);
 
   useEffect(() => {
@@ -450,16 +463,36 @@ function CheckoutContent() {
               disabled={saving || redirecting}
             >
               <ExternalLink className="h-4 w-4" />
-              {saving ? "Criando pedido…" : `Ir para o Pagamento — R$ ${finalTotal.toFixed(2).replace(".", ",")}`}
+              {saving
+                ? "Criando pedido…"
+                : shippingKnown
+                ? `Ir para o Pagamento — R$ ${finalTotal.toFixed(2).replace(".", ",")}`
+                : "Ir para o Pagamento"}
             </Button>
           </form>
 
           {/* Order Summary */}
           <div className="md:col-span-2 bg-card border border-border rounded-2xl p-5 sticky top-24 space-y-4">
             <h2 className="font-semibold text-base">Resumo do pedido</h2>
+            {freeShippingThreshold !== null && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${freeShippingProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  {qualifiesFreeShipping
+                    ? <span className="text-emerald-600 font-medium">Frete grátis desbloqueado!</span>
+                    : <>Faltam <span className="font-semibold text-foreground">R$ {freeShippingRemaining.toFixed(2).replace(".", ",")}</span> para frete grátis</>
+                  }
+                </p>
+              </div>
+            )}
             <div className="space-y-2.5 text-sm">
               {items.map((item) => (
-                <div key={`${item.product.id}-${item.customization?.text}`} className="flex justify-between gap-2">
+                <div key={item.product.id} className="flex justify-between gap-2">
                   <span className="text-muted-foreground truncate">{item.quantity}× {item.product.name}</span>
                   <span className="tabular-nums shrink-0 font-medium">R$ {(salePrice(item.product) * item.quantity).toFixed(2).replace(".", ",")}</span>
                 </div>
@@ -476,15 +509,17 @@ function CheckoutContent() {
               )}
               <div className="flex justify-between text-muted-foreground">
                 <span>Frete</span>
-                <span className={shippingCost === 0 ? "text-emerald-600 font-medium" : ""}>
-                  {shippingCalcLoading
-                    ? <span className="italic text-xs">calculando...</span>
+                <span className={shippingKnown && shippingCost === 0 ? "text-emerald-600 font-medium" : ""}>
+                  {!zipComplete
+                    ? <span className="text-xs italic">informe o CEP</span>
+                    : shippingCalcLoading
+                    ? <span className="text-xs italic">calculando...</span>
                     : shippingCost === 0
                     ? "Grátis"
                     : `R$ ${shippingCost.toFixed(2).replace(".", ",")}`}
                 </span>
               </div>
-              {selectedShipping && (
+              {shippingKnown && selectedShipping && (
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3 text-primary" />
                   {selectedShipping.name}
@@ -492,7 +527,12 @@ function CheckoutContent() {
                 </div>
               )}
               <div className="flex justify-between font-bold text-base border-t border-border pt-3">
-                <span>Total</span><span>R$ {finalTotal.toFixed(2).replace(".", ",")}</span>
+                <span>Total</span>
+                <span>
+                  {shippingKnown
+                    ? `R$ ${finalTotal.toFixed(2).replace(".", ",")}`
+                    : `R$ ${subtotalAfterDiscount.toFixed(2).replace(".", ",")} + frete`}
+                </span>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground text-center pt-1">

@@ -4,9 +4,10 @@ import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Phone, MapPin, CheckCircle2 } from "lucide-react";
+import { Mail, Phone, MapPin, CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 const contactInfo = [
   {
@@ -31,10 +32,34 @@ const contactInfo = [
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    setSending(true);
+    try {
+      const res = await fetch("/api/contact-messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Erro ao enviar mensagem. Tente novamente.");
+        return;
+      }
+      setSent(true);
+      setFormData({ name: "", email: "", phone: "", message: "" });
+    } catch {
+      toast.error("Erro ao enviar mensagem. Verifique sua conexão.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -77,15 +102,38 @@ export default function ContactPage() {
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Nome</Label>
-                  <Input className="h-11 rounded-xl" placeholder="Seu nome completo" required />
+                  <Input
+                    className="h-11 rounded-xl"
+                    placeholder="Seu nome completo"
+                    value={formData.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    required
+                    disabled={sending}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">E-mail</Label>
-                  <Input className="h-11 rounded-xl" type="email" placeholder="seu@email.com" required />
+                  <Input
+                    className="h-11 rounded-xl"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                    required
+                    disabled={sending}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Telefone</Label>
-                  <Input className="h-11 rounded-xl" type="tel" placeholder="(11) 00000-0000" />
+                  <Input
+                    className="h-11 rounded-xl"
+                    type="tel"
+                    placeholder="(11) 00000-0000"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", e.target.value)}
+                    required
+                    disabled={sending}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Mensagem</Label>
@@ -93,11 +141,18 @@ export default function ContactPage() {
                     placeholder="Descreva sua dúvida ou solicitação..."
                     rows={4}
                     required
-                    className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                    disabled={sending}
+                    value={formData.message}
+                    onChange={(e) => handleChange("message", e.target.value)}
+                    className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
                   />
                 </div>
-                <Button type="submit" className="w-full h-11 rounded-xl font-semibold">
-                  Enviar mensagem
+                <Button type="submit" className="w-full h-11 rounded-xl font-semibold" disabled={sending}>
+                  {sending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Enviando...</>
+                  ) : (
+                    "Enviar mensagem"
+                  )}
                 </Button>
               </form>
             )}

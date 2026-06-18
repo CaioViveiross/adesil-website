@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { toast } from "sonner";
 import type { Product, Category } from "@/types/supabase";
 import { supabase } from "@/lib/supabaseClient";
+import { ImageCropModal } from "@/components/admin/ImageCropModal";
+import { AdminPageLoader } from "@/components/admin/AdminLoader";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -24,6 +28,8 @@ export default function AdminProductsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,80 +42,79 @@ export default function AdminProductsPage() {
     tags: "",
   });
 
-  useEffect(() => {
-    fetchData();
+  const fetchProducts = useCallback(async (search = "") => {
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      if (search.trim()) params.set("search", search.trim());
+      const res = await fetch(`/api/products?${params}`);
+      if (res.ok) setProducts(await res.json());
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
   }, []);
 
+  useEffect(() => {
+    const loadInitial = async () => {
+      try {
+        const [, categoriesRes] = await Promise.all([
+          fetchProducts(),
+          fetch('/api/categories'),
+        ]);
+        if (categoriesRes.ok) setCategories(await categoriesRes.json());
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitial();
+  }, []);
+
+  // Debounced server-side search
+  useEffect(() => {
+    const timer = setTimeout(() => fetchProducts(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, fetchProducts]);
+
   const fetchData = async () => {
-    try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/products?limit=100'),
-        fetch('/api/categories')
-      ]);
-
-      const productsData = productsRes.ok ? await productsRes.json() : [];
-      const categoriesData = categoriesRes.ok ? await categoriesRes.json() : [];
-
-      setProducts(productsData);
-      setCategories(categoriesData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
+    await fetchProducts(searchTerm);
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!file) return;
+  // Step 1: file selected → open crop modal
+  const handleFileSelect = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
+  // Step 2: crop confirmed → upload blob to Supabase
+  const handleCropConfirm = async (blob: Blob) => {
+    setCropSrc(null);
     setUploading(true);
     try {
-      // Verificar se o usuário está autenticado
       const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Usuário não autenticado.");
 
-      if (authError || !user) {
-        throw new Error('Usuário não autenticado. Faça login para fazer upload.');
-      }
-
-      console.log('Usuário autenticado:', user.id);
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
       const filePath = `products/${fileName}`;
 
-      console.log('Fazendo upload para:', filePath);
+      const { error } = await supabase.storage
+        .from("Adesil Bucket")
+        .upload(filePath, blob, { contentType: "image/jpeg" });
 
-      const { data, error } = await supabase.storage
-        .from('Adesil Bucket')
-        .upload(filePath, file);
-
-      if (error) {
-        console.error('Erro do Supabase Storage:', error);
-        throw error;
-      }
-
-      console.log('Upload realizado com sucesso:', data);
+      if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('Adesil Bucket')
+        .from("Adesil Bucket")
         .getPublicUrl(filePath);
 
-      console.log('URL pública gerada:', publicUrl);
-
-      setFormData(prev => ({ ...prev, image: publicUrl }));
+      setFormData((prev) => ({ ...prev, image: publicUrl }));
     } catch (error) {
-      console.error('Error uploading image:', error);
-      alert(`Erro ao fazer upload da imagem: ${error.message}`);
+      console.error("Erro no upload:", error);
+      toast.error(`Erro ao fazer upload: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
-  const filteredProducts = products.filter(product => {
-    const categoryName = categories.find(c => c.id === product.category_id)?.name || '';
-    return product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           categoryName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +143,7 @@ export default function AdminProductsPage() {
         resetForm();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(errorData?.error || 'Erro ao salvar produto.');
+        toast.error(errorData?.error || 'Erro ao salvar produto.');
       }
     } catch (error) {
       console.error('Error saving product:', error);
@@ -146,12 +151,11 @@ export default function AdminProductsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
-
     try {
       const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       if (response.ok) {
         await fetchData();
+        toast.success('Produto excluído');
       }
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -197,7 +201,7 @@ export default function AdminProductsPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        alert(errorData?.error || "Erro ao atualizar destaque.");
+        toast.error(errorData?.error || "Erro ao atualizar destaque.");
         return;
       }
 
@@ -210,21 +214,13 @@ export default function AdminProductsPage() {
       );
     } catch (error) {
       console.error("Error toggling featured status:", error);
-      alert("Erro ao atualizar destaque.");
+      toast.error("Erro ao atualizar destaque.");
     } finally {
       setTogglingFeaturedId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  if (loading) return <AdminPageLoader />;
 
   return (
     <AdminLayout>
@@ -328,18 +324,27 @@ export default function AdminProductsPage() {
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) handleImageUpload(file);
+                        if (file) handleFileSelect(file);
+                        e.target.value = "";
                       }}
                       disabled={uploading}
                     />
-                    {uploading && <p className="text-sm text-muted-foreground">Fazendo upload...</p>}
-                    {formData.image && (
-                      <div className="mt-2">
+                    {uploading && <p className="text-sm text-muted-foreground">Fazendo upload…</p>}
+                    {formData.image && !uploading && (
+                      <div className="relative w-20 h-20 group">
                         <img
                           src={formData.image}
                           alt="Preview"
-                          className="w-20 h-20 object-cover rounded border"
+                          className="w-20 h-20 object-cover rounded-lg border"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setFormData((p) => ({ ...p, image: "" }))}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remover imagem"
+                        >
+                          ×
+                        </button>
                       </div>
                     )}
                   </div>
@@ -395,7 +400,7 @@ export default function AdminProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
@@ -437,7 +442,7 @@ export default function AdminProductsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDelete(product.id)}
+                        onClick={() => setDeleteTarget(product.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -449,6 +454,21 @@ export default function AdminProductsPage() {
           </Table>
         </div>
       </div>
+      {cropSrc && (
+        <ImageCropModal
+          open={!!cropSrc}
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir produto?"
+        description="O produto será desativado e não aparecerá mais na loja. Esta ação não pode ser desfeita."
+        onConfirm={() => { handleDelete(deleteTarget!); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AdminLayout>
   );
 }

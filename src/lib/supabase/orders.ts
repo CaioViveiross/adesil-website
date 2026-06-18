@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabaseServer";
-import type { Order, OrderItem, Client, OrderStatus } from "@/types/supabase";
+import type { Order, OrderItem, OrderStatus } from "@/types/supabase";
 
 async function getSupabase() {
   return await createClient();
@@ -107,64 +107,3 @@ export async function deleteOrder(id: string) {
   return true;
 }
 
-// ==================== CLIENTS ====================
-
-export async function getClients(limit = 50, offset = 0) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("joined_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) throw error;
-  return data;
-}
-
-export async function getClientById(id: string) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function createClientRecord(client: Omit<Client, "id" | "created_at">) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("clients")
-    .insert(client)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function updateClient(id: string, updates: Partial<Client>) {
-  const supabase = await getSupabase();
-  const { data, error } = await supabase
-    .from("clients")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteClient(id: string) {
-  const supabase = await getSupabase();
-  const { error } = await supabase
-    .from("clients")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw error;
-  return true;
-}

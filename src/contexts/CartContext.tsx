@@ -1,15 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { salePrice } from "@/lib/utils";
 import type { Product } from "@/types/supabase";
 
 export interface CartItem {
   product: Product;
   quantity: number;
-  customization?: {
-    text: string;
-    color: string;
-    font: string;
-  };
 }
 
 export interface ShippingOption {
@@ -21,7 +16,7 @@ export interface ShippingOption {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number, customization?: CartItem["customization"]) => void;
+  addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -39,6 +34,7 @@ interface CartContextType {
   setShippingOptions: (options: ShippingOption[]) => void;
   selectedShipping: ShippingOption | null;
   setSelectedShipping: (option: ShippingOption | null) => void;
+  freeShippingThreshold: number | null;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -57,8 +53,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [shippingZip, setShippingZip] = useState("");
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | null>(null);
 
-  const addItem = useCallback((product: Product, quantity = 1, customization?: CartItem["customization"]) => {
+  useEffect(() => {
+    const fetchThreshold = () => {
+      fetch("/api/settings/public", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          const v = parseFloat(d.shipping_free_above ?? "");
+          setFreeShippingThreshold(!isNaN(v) && v > 0 ? v : null);
+        })
+        .catch(() => {});
+    };
+    fetchThreshold();
+    window.addEventListener("focus", fetchThreshold);
+    return () => window.removeEventListener("focus", fetchThreshold);
+  }, []);
+
+  const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
@@ -66,7 +78,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           i.product.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
         );
       }
-      return [...prev, { product, quantity, customization }];
+      return [...prev, { product, quantity }];
     });
   }, []);
 
@@ -126,6 +138,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         shippingZip, setShippingZip,
         shippingOptions, setShippingOptions,
         selectedShipping, setSelectedShipping,
+        freeShippingThreshold,
       }}
     >
       {children}

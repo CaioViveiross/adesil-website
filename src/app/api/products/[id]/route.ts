@@ -166,9 +166,10 @@ export async function DELETE(
       );
     }
 
+    // Soft delete: preserves order history and abacatepay_product_id
     const { error } = await supabase
       .from("products")
-      .delete()
+      .update({ deleted_at: new Date().toISOString(), is_active: false })
       .eq("id", id);
 
     if (error) throw error;

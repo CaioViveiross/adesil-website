@@ -1,133 +1,73 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search, Eye } from "lucide-react";
+import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { statusLabels } from "@/types/supabase";
 import { parseOrderDate } from "@/lib/utils";
 import type { Order, OrderStatus } from "@/types/supabase";
 
+const ALL_STATUSES: { value: OrderStatus; label: string }[] = [
+  { value: "pending",    label: "Pendente"     },
+  { value: "processing", label: "Processando"  },
+  { value: "shipped",    label: "Enviado"      },
+  { value: "delivered",  label: "Entregue"     },
+  { value: "failed",     label: "Falhou"       },
+  { value: "refunded",   label: "Reembolsado"  },
+  { value: "cancelled",  label: "Cancelado"    },
+];
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [loadingOrder, setLoadingOrder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
 
-  const openOrderDetail = async (orderId: string) => {
-    setModalOpen(true);
-    setLoadingOrder(true);
-    setSelectedOrder(null);
-
-    try {
-      const response = await fetch(`/api/orders/${orderId}`);
-      if (!response.ok) {
-        throw new Error("Não foi possível carregar o pedido.");
-      }
-      const data: Order = await response.json();
-      setSelectedOrder(data);
-    } catch (error) {
-      console.error("Error loading admin order detail:", error);
-    } finally {
-      setLoadingOrder(false);
-    }
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setSelectedOrder(null);
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [statusFilter]);
-
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams({ limit: "100" });
-      if (statusFilter !== "all") {
-        params.set("status", statusFilter);
-      }
-
+      if (statusFilter !== "all") params.set("status", statusFilter);
       const response = await fetch(`/api/orders?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data);
-      }
+      if (response.ok) setOrders(await response.json());
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error("Error fetching orders:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const normalizedSearchTerm = searchTerm.toLowerCase();
-
-  const filteredOrders = orders.filter(order => {
-    const orderId = String(order.id).toLowerCase();
-    const customer = String(order.customer_name ?? "").toLowerCase();
-    return orderId.includes(normalizedSearchTerm) || customer.includes(normalizedSearchTerm);
-  });
+  useEffect(() => { fetchOrders(); }, [statusFilter]);
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-
-      if (response.ok) {
-        await fetchOrders();
-      }
+      if (response.ok) await fetchOrders();
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error("Error updating order status:", error);
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  const normalizedSearch = searchTerm.toLowerCase();
+  const filteredOrders = orders.filter((order) => {
+    const id = String(order.id).toLowerCase();
+    const customer = String(order.customer_name ?? "").toLowerCase();
+    return id.includes(normalizedSearch) || customer.includes(normalizedSearch);
+  });
 
-  // Helpers
-  const formatBRL = (value: number) =>
-    `R$ ${value.toFixed(2).replace(".", ",")}`;
+  const formatBRL = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
 
-  const subtotal = (order: Order) =>
-    order.items_detail?.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
-
-  const getFirstString = (source: Record<string, unknown>, keys: string[]) => {
-    for (const key of keys) {
-      const value = source[key];
-      if (typeof value === "string" && value.trim()) {
-        return value;
-      }
-    }
-    return undefined;
-  };
-
-  const getFirstDate = (source: Record<string, unknown>, keys: string[]) => {
-    const value = getFirstString(source, keys);
-    if (!value) return undefined;
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  };
+  if (loading) return <AdminPageLoader />;
 
   return (
     <AdminLayout>
@@ -138,7 +78,7 @@ export default function AdminOrdersPage() {
       <div className="bg-card rounded-2xl border p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por ID ou cliente..."
               value={searchTerm}
@@ -146,16 +86,15 @@ export default function AdminOrdersPage() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatus | "all")}>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as OrderStatus | "all")}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filtrar por status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="pending">Pendente</SelectItem>
-              <SelectItem value="processing">Processando</SelectItem>
-              <SelectItem value="shipped">Enviado</SelectItem>
-              <SelectItem value="delivered">Entregue</SelectItem>
+              {ALL_STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -170,39 +109,44 @@ export default function AdminOrdersPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Itens</TableHead>
                 <TableHead>Total</TableHead>
-                <TableHead className="w-32">Ações</TableHead>
+                <TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    #{String(order.id).slice(0, 8).toUpperCase()}
+                  </TableCell>
                   <TableCell>{order.customer_name}</TableCell>
-                  <TableCell>{parseOrderDate(order.ordered_at, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {parseOrderDate(order.ordered_at, order.created_at)?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                  </TableCell>
                   <TableCell>
                     <Select
                       value={order.status}
-                      onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
+                      onValueChange={(v) => handleStatusChange(order.id, v as OrderStatus)}
                     >
-                      <SelectTrigger className="w-32">
-                        <Badge className={statusLabels[order.status].color}>
-                          {statusLabels[order.status].label}
+                      <SelectTrigger className="w-36 h-8">
+                        <Badge className={statusLabels[order.status]?.color}>
+                          {statusLabels[order.status]?.label}
                         </Badge>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pendente</SelectItem>
-                        <SelectItem value="processing">Processando</SelectItem>
-                        <SelectItem value="shipped">Enviado</SelectItem>
-                        <SelectItem value="delivered">Entregue</SelectItem>
+                        {ALL_STATUSES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell>{order.items}</TableCell>
                   <TableCell className="font-medium">{formatBRL(order.total)}</TableCell>
                   <TableCell>
-                    <Button size="sm" variant="outline" onClick={() => openOrderDetail(order.id)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/admin/pedidos/${order.id}`}>
+                        <Eye className="h-4 w-4 mr-1.5" />
+                        Ver
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -217,149 +161,6 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
-
-      {/* Modal de detalhes */}
-      <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {loadingOrder
-                ? "Carregando pedido..."
-                : selectedOrder
-                ? `Pedido #${selectedOrder.id}`
-                : "Detalhes do pedido"}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedOrder
-                ? parseOrderDate(selectedOrder.ordered_at, selectedOrder.created_at)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-
-          {loadingOrder ? (
-            <div className="py-10 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
-              <p className="text-muted-foreground mt-4">Carregando detalhes...</p>
-            </div>
-          ) : selectedOrder ? (
-            <div className="space-y-4">
-
-              {/* Status + Resumo */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border bg-card p-4">
-                  <h3 className="text-sm font-semibold mb-3">Resumo</h3>
-                  <p className="text-sm text-muted-foreground mb-1">Itens: {selectedOrder.items}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Total: <span className="font-semibold text-foreground">{formatBRL(selectedOrder.total)}</span>
-                  </p>
-                </div>
-                <div className="rounded-2xl border bg-card p-4">
-                  <h3 className="text-sm font-semibold mb-3">Status</h3>
-                  <Badge className={statusLabels[selectedOrder.status].color}>
-                    {statusLabels[selectedOrder.status].label}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Cliente & Faturamento (dados para NF) */}
-              <div className="rounded-2xl border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Cliente &amp; Faturamento</h3>
-                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                  <span className="text-muted-foreground">Nome</span>
-                  <span>{selectedOrder.customer_name ?? "-"}</span>
-
-                  <span className="text-muted-foreground">Faturar em nome de</span>
-                  <span>{selectedOrder.billing_name ?? selectedOrder.customer_name ?? "-"}</span>
-
-                  <span className="text-muted-foreground">E-mail</span>
-                  <span>{selectedOrder.customer_email ?? "-"}</span>
-
-                  <span className="text-muted-foreground">CPF / CNPJ</span>
-                  <span className="font-mono">{selectedOrder.document ?? "-"}</span>
-                </div>
-              </div>
-
-              {/* Entrega */}
-              <div className="rounded-2xl border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Entrega</h3>
-                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                  <span className="text-muted-foreground">Endereço</span>
-                  <span>
-                    {selectedOrder.shipping_street ?? "-"}, {selectedOrder.shipping_number ?? "-"}
-                    {selectedOrder.shipping_complement ? ` — ${selectedOrder.shipping_complement}` : ""}
-                  </span>
-
-                  <span className="text-muted-foreground">Cidade / UF</span>
-                  <span>{selectedOrder.shipping_city ?? "-"} / {selectedOrder.shipping_state ?? "-"}</span>
-
-                  <span className="text-muted-foreground">CEP</span>
-                  <span className="font-mono">{selectedOrder.shipping_zipcode ?? "-"}</span>
-
-                  <span className="text-muted-foreground">País</span>
-                  <span>{selectedOrder.shipping_country ?? "Brasil"}</span>
-
-                  <span className="text-muted-foreground">Frete</span>
-                  <span>{selectedOrder.shipping_cost != null ? formatBRL(selectedOrder.shipping_cost) : "-"}</span>
-                </div>
-              </div>
-
-              {/* Itens do pedido */}
-              <div className="rounded-2xl border bg-card p-4">
-                <h3 className="text-sm font-semibold mb-3">Itens do pedido</h3>
-                <div className="space-y-2">
-                  {selectedOrder.items_detail?.length ? (
-                    selectedOrder.items_detail.map((item) => (
-                      <div
-                        key={item.product_id}
-                        className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Qtd: {item.quantity}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold">{formatBRL(item.price * item.quantity)}</p>
-                          <p className="text-xs text-muted-foreground">{item.quantity} × {formatBRL(item.price)}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Nenhum item detalhado disponível.</p>
-                  )}
-                </div>
-
-                {/* Totais */}
-                {selectedOrder.items_detail?.length ? (
-                  <div className="mt-4 border-t pt-3 space-y-1 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span>{formatBRL(subtotal(selectedOrder))}</span>
-                    </div>
-                    {selectedOrder.shipping_cost != null && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Frete</span>
-                        <span>{formatBRL(selectedOrder.shipping_cost)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold text-foreground pt-1 border-t">
-                      <span>Total</span>
-                      <span>{formatBRL(selectedOrder.total)}</span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Não foi possível carregar detalhes do pedido.</p>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeModal}>Fechar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }

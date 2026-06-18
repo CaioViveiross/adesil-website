@@ -21,12 +21,14 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
     const categoryParam = searchParams.get("category");
     const featuredParam = searchParams.get("featured");
+    const searchParam = searchParams.get("search")?.trim() || "";
     const categoryId = categoryParam ? parseInt(categoryParam, 10) : undefined;
 
     if (featuredParam === "true") {
       let featuredQuery = supabase
         .from("products")
         .select("*")
+        .is("deleted_at", null)
         .eq("is_featured", true)
         .order("created_at", { ascending: false })
         .limit(limit);
@@ -49,6 +51,7 @@ export async function GET(request: NextRequest) {
       let recentQuery = supabase
         .from("products")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(Math.max(limit * 10, 40));
 
@@ -72,6 +75,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("products")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (categoryParam) {
@@ -79,6 +83,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json([], { status: 200 });
       }
       query = query.eq("category_id", categoryId);
+    }
+
+    if (searchParam) {
+      query = query.ilike("name", `%${searchParam}%`);
     }
 
     const { data, error } = await query.range(offset, offset + limit - 1);

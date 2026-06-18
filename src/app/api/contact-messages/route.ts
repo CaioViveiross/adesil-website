@@ -4,9 +4,9 @@ import { createContactMessage } from "@/lib/supabase/contactMessages";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const name = String(body?.name ?? "").trim();
-    const email = String(body?.email ?? "").trim();
-    const phone = String(body?.phone ?? "").trim();
+    const name    = String(body?.name    ?? "").trim();
+    const email   = String(body?.email   ?? "").trim();
+    const phone   = String(body?.phone   ?? "").trim();
     const message = String(body?.message ?? "").trim();
 
     if (!name || !email || !phone || !message) {
@@ -16,12 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contactMessage = await createContactMessage({
-      name,
-      email,
-      phone,
-      message,
-    });
+    const contactMessage = await createContactMessage({ name, email, phone, message });
 
     return NextResponse.json(contactMessage, { status: 201 });
   } catch (error) {

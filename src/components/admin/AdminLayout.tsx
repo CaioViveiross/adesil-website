@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Package, ShoppingCart, ArrowLeft,
-  Tag, Settings, Mail, Ticket, Menu, X, ChevronLeft,
+  Tag, Settings, Mail, Ticket, Menu, X, ChevronLeft, Users,
 } from "lucide-react";
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { label: "Categorias",    href: "/admin/categorias",    icon: Tag             },
   { label: "Cupons",        href: "/admin/cupons",        icon: Ticket          },
   { label: "Contatos",      href: "/admin/contato",       icon: Mail            },
+  { label: "Usuários",      href: "/admin/usuarios",      icon: Users           },
   { label: "Configurações", href: "/admin/configuracoes", icon: Settings        },
 ];
 
@@ -48,9 +49,23 @@ function NavLinks({ collapsed, onClose }: { collapsed?: boolean; onClose?: () =>
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [mobileOpen, setMobileOpen]     = useState(false);
-  const [collapsed,  setCollapsed]      = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
   const pathname = usePathname();
+
+  // Persist sidebar state across navigation
+  useEffect(() => {
+    const saved = localStorage.getItem("admin-sidebar-collapsed");
+    if (saved !== null) setCollapsed(saved === "true");
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((v) => {
+      const next = !v;
+      localStorage.setItem("admin-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -77,7 +92,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           )}
           <button
-            onClick={() => setCollapsed((v) => !v)}
+            onClick={toggleCollapsed}
             className="text-background/50 hover:text-background transition-colors p-1 rounded-lg hover:bg-background/5"
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
           >

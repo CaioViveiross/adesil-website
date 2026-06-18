@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -35,26 +35,42 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
-  // creating a new response object with NextResponse.next() or NextResponse.redirect(),
-  // you will need to ensure that you pass the supabaseResponse cookies to the new response.
-  // For example:
-  // const myNewResponse = NextResponse.redirect(new URL('/dashboard', request.url))
-  // myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // return myNewResponse
+  const path = request.nextUrl.pathname
 
+  if (path.startsWith('/admin')) {
+    // Unauthenticated → redirect to login
+    if (!user) {
+      const redirectUrl = new URL('/auth', request.url)
+      const redirect = NextResponse.redirect(redirectUrl)
+      supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+        redirect.cookies.set(name, value)
+      )
+      return redirect
+    }
+
+    // Check admin role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || profile.role !== 'admin') {
+      const redirectUrl = new URL('/', request.url)
+      const redirect = NextResponse.redirect(redirectUrl)
+      supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+        redirect.cookies.set(name, value)
+      )
+      return redirect
+    }
+  }
+
+  // IMPORTANT: You *must* return the supabaseResponse object as it is.
   return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

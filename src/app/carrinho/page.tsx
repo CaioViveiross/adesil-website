@@ -10,8 +10,6 @@ import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
-const STATIC_SHIPPING_THRESHOLD = 300;
-const STATIC_SHIPPING_COST = 29.9;
 
 function formatCep(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -25,6 +23,7 @@ export default function CartPage() {
     shippingZip, setShippingZip,
     shippingOptions, setShippingOptions,
     selectedShipping, setSelectedShipping,
+    freeShippingThreshold,
   } = useCart();
 
   const [cepInput, setCepInput] = useState(shippingZip || "");
@@ -39,16 +38,26 @@ export default function CartPage() {
 
   const subtotalAfterDiscount = total - discountAmount;
 
-  // Use Correios if options available, otherwise fall back to static rule
-  const shipping =
-    shippingOptions.length > 0
-      ? (selectedShipping?.price ?? null)
-      : subtotalAfterDiscount >= STATIC_SHIPPING_THRESHOLD
-      ? 0
-      : STATIC_SHIPPING_COST;
+  const qualifiesFreeShipping =
+    freeShippingThreshold !== null && subtotalAfterDiscount >= freeShippingThreshold;
+
+  const shipping: number | null = qualifiesFreeShipping
+    ? 0
+    : shippingOptions.length > 0
+    ? (selectedShipping?.price ?? null)
+    : null;
 
   const finalTotal =
     shipping !== null ? subtotalAfterDiscount + shipping : subtotalAfterDiscount;
+
+  const freeShippingRemaining =
+    freeShippingThreshold !== null && !qualifiesFreeShipping
+      ? freeShippingThreshold - subtotalAfterDiscount
+      : 0;
+  const freeShippingProgress =
+    freeShippingThreshold !== null
+      ? Math.min((subtotalAfterDiscount / freeShippingThreshold) * 100, 100)
+      : 0;
 
   const handleCalculateShipping = async () => {
     const digits = cepInput.replace(/\D/g, "");
@@ -121,7 +130,7 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-3">
             {items.map((item, i) => (
               <motion.div
-                key={`${item.product.id}-${item.customization?.text}`}
+                key={item.product.id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.05 }}
@@ -141,9 +150,6 @@ export default function CartPage() {
                         {item.product.name}
                       </h3>
                     </Link>
-                    {item.customization && (
-                      <p className="text-xs text-primary mt-0.5">Personalizado: "{item.customization.text}"</p>
-                    )}
                   </div>
                   <div className="flex items-baseline gap-2">
                     <p className="text-base font-bold">R$ {salePrice(item.product).toFixed(2).replace(".", ",")}</p>
@@ -320,14 +326,21 @@ export default function CartPage() {
               </Button>
             </Link>
 
-            {shippingOptions.length === 0 && subtotalAfterDiscount < STATIC_SHIPPING_THRESHOLD && (
-              <p className="text-xs text-center text-muted-foreground">
-                Faltam{" "}
-                <span className="font-semibold text-foreground">
-                  R$ {(STATIC_SHIPPING_THRESHOLD - subtotalAfterDiscount).toFixed(2).replace(".", ",")}
-                </span>{" "}
-                para frete grátis
-              </p>
+            {freeShippingThreshold !== null && (
+              <div className="space-y-2 pt-1">
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${freeShippingProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  {qualifiesFreeShipping
+                    ? <span className="text-emerald-600 font-medium">Frete grátis desbloqueado!</span>
+                    : <>Faltam <span className="font-semibold text-foreground">R$ {freeShippingRemaining.toFixed(2).replace(".", ",")}</span> para frete grátis</>
+                  }
+                </p>
+              </div>
             )}
           </div>
         </div>

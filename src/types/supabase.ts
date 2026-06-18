@@ -88,6 +88,8 @@ export interface Order {
   shipping_state?: string;
   shipping_country?: string;
   shipping_cost?: number;
+  tracking_code?: string;
+  tracking_carrier?: string;
   /** @deprecated Use order_items table instead. Kept for backward-compat while UI migrates. */
   items_detail?: Array<{
     product_id: string;

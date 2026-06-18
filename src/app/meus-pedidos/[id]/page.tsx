@@ -5,12 +5,15 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle2, Package, Clock, CreditCard, Loader2, XCircle, RefreshCw, Truck, PackageCheck, RotateCcw, Ban } from "lucide-react";
+import {
+  ArrowLeft, CheckCircle2, Package, Clock, CreditCard, Loader2,
+  XCircle, RefreshCw, Truck, PackageCheck, RotateCcw, Ban,
+  MapPin, Copy, Check, ExternalLink,
+} from "lucide-react";
 import { parseOrderDate } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Order, OrderItem, OrderStatus } from "@/types/supabase";
-
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
   { key: "pending",    label: "Pendente",  Icon: Clock        },
@@ -89,7 +92,6 @@ function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry }: 
   retryError: string | null;
   onRetry: () => void;
 }) {
-  // Success banner: only shown when gateway redirected back AND order is no longer pending
   if (paymentParam === "success" && status !== "pending") {
     return (
       <motion.div
@@ -106,7 +108,6 @@ function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry }: 
     );
   }
 
-  // Failed banner
   if (status === "failed") {
     return (
       <motion.div
@@ -130,7 +131,6 @@ function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry }: 
     );
   }
 
-  // Pending banner with retry
   if (status === "pending") {
     return (
       <motion.div
@@ -157,6 +157,158 @@ function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry }: 
   return null;
 }
 
+interface TrackingData {
+  tracking_code: string | null;
+  tracking_carrier: string | null;
+  events: Array<{ date: string; time: string; location: string; description: string }>;
+  api_error?: string;
+}
+
+function TrackingSection({ orderId, trackingCode, trackingCarrier }: {
+  orderId: string;
+  trackingCode: string;
+  trackingCarrier?: string;
+}) {
+  const [data, setData] = useState<TrackingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/orders/${orderId}/tracking`)
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData({ tracking_code: trackingCode, tracking_carrier: trackingCarrier ?? "Correios", events: [] }))
+      .finally(() => setLoading(false));
+  }, [orderId, trackingCode, trackingCarrier]);
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(trackingCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const correiosUrl = `https://rastreamento.correios.com.br/app/resultado.php?objeto=${trackingCode}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-border bg-card p-5"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Truck className="h-4 w-4 text-primary" />
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Rastreamento</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2">
+          <span className="font-mono text-sm font-semibold">{trackingCode}</span>
+          <button
+            onClick={copyCode}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Copiar código"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        {(data?.tracking_carrier || trackingCarrier) && (
+          <span className="text-xs text-muted-foreground">
+            {data?.tracking_carrier ?? trackingCarrier}
+          </span>
+        )}
+        <a
+          href={correiosUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors ml-auto"
+        >
+          Rastrear nos Correios <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Buscando atualizações...
+        </div>
+      ) : data?.api_error ? (
+        <p className="text-xs text-muted-foreground">{data.api_error}</p>
+      ) : data && data.events.length > 0 ? (
+        <div className="space-y-2">
+          {/* Latest event highlighted */}
+          <div className="rounded-xl bg-primary/5 border border-primary/10 p-3">
+            <div className="flex items-start gap-2">
+              <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0 animate-pulse" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{data.events[0].description}</p>
+                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                  {data.events[0].location && (
+                    <>
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span>{data.events[0].location}</span>
+                      <span>·</span>
+                    </>
+                  )}
+                  <span>{data.events[0].date} {data.events[0].time}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* History (collapsible) */}
+          {data.events.length > 1 && (
+            <>
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+              >
+                {expanded ? "Ocultar histórico" : `Ver histórico (${data.events.length - 1} evento${data.events.length > 2 ? "s" : ""})`}
+              </button>
+              <AnimatePresence>
+                {expanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2 mt-1 border-l-2 border-border ml-1 pl-4">
+                      {data.events.slice(1).map((e, idx) => (
+                        <div key={idx} className="text-sm">
+                          <p className="text-foreground/80">{e.description}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                            {e.location && (
+                              <>
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span>{e.location}</span>
+                                <span>·</span>
+                              </>
+                            )}
+                            <span>{e.date} {e.time}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Nenhum evento de rastreio disponível ainda. Verifique diretamente{" "}
+          <a href={correiosUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+            nos Correios
+          </a>.
+        </p>
+      )}
+    </motion.div>
+  );
+}
+
 function MyOrderDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -168,7 +320,7 @@ function MyOrderDetailContent() {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const orderId = params?.id;
+  const orderId = params?.id as string;
 
   const handleRetryPayment = async () => {
     if (!orderId) return;
@@ -202,10 +354,7 @@ function MyOrderDetailContent() {
           return;
         }
         setOrder(data);
-        if (itemsRes.ok) {
-          const items: OrderItem[] = await itemsRes.json();
-          setOrderItems(items);
-        }
+        if (itemsRes.ok) setOrderItems(await itemsRes.json());
       } catch {
         setError("Não foi possível carregar os detalhes do pedido.");
       } finally {
@@ -253,12 +402,12 @@ function MyOrderDetailContent() {
     );
   }
 
-
-  // Prefer relational order_items; fall back to legacy items_detail if items table is empty
   const displayItems: Array<{ key: string; name: string; quantity: number; price: number }> =
     orderItems.length > 0
       ? orderItems.map((i) => ({ key: i.id, name: i.product_name_snapshot, quantity: i.quantity, price: i.unit_price }))
       : (order.items_detail ?? []).map((i) => ({ key: i.product_id, name: i.name, quantity: i.quantity, price: i.price }));
+
+  const showTracking = order.tracking_code || order.status === "shipped" || order.status === "delivered";
 
   return (
     <Layout>
@@ -331,6 +480,27 @@ function MyOrderDetailContent() {
               </div>
             ))}
           </div>
+
+          {/* Rastreamento — mostrado quando há código ou pedido foi enviado */}
+          {showTracking && (
+            order.tracking_code ? (
+              <TrackingSection
+                orderId={String(order.id)}
+                trackingCode={order.tracking_code}
+                trackingCarrier={order.tracking_carrier}
+              />
+            ) : (
+              <div className="rounded-2xl border border-border bg-card p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Rastreamento</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Seu pedido foi enviado. O código de rastreio será disponibilizado em breve.
+                </p>
+              </div>
+            )
+          )}
 
           <div className="rounded-2xl border border-border bg-card p-5">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Itens do pedido</p>
