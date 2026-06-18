@@ -23,6 +23,8 @@ export interface CheckoutOptions {
   };
   appBaseUrl: string;
   source?: string;
+  shippingCost?: number; // em R$ — adicionado como item "Frete" no checkout
+  discountAmount?: number; // em R$ — subtraído do total para cálculo de parcelas
 }
 
 export interface AbacatePayCheckoutResponse {
@@ -181,8 +183,21 @@ export async function createAbacatePayCheckout(
     })
   );
 
+  // Adiciona frete como item separado quando aplicável
+  if (options.shippingCost && options.shippingCost > 0) {
+    const shippingProductId = await createAbacatePayProduct({
+      product_id: "shipping",
+      name:       "Frete",
+      price:      options.shippingCost,
+    });
+    checkoutItems.push({ id: shippingProductId, quantity: 1 });
+  }
+
   // 3. Criar o checkout
-  const totalBRL = options.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const productTotal  = options.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const shippingTotal = options.shippingCost ?? 0;
+  const discountTotal = options.discountAmount ?? 0;
+  const totalBRL      = productTotal + shippingTotal - discountTotal;
   // AbacatePay exige mínimo de R$10 por parcela
   const maxInstallments = Math.max(1, Math.min(12, Math.floor(totalBRL / 10)));
 

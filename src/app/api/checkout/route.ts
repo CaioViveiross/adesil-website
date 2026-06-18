@@ -256,7 +256,9 @@ export async function POST(request: NextRequest) {
           taxId:     typeof document === "string" ? document : undefined,
         },
         appBaseUrl,
-        source: "adesil-web-checkout",
+        source:         "adesil-web-checkout",
+        shippingCost:   shippingCost   > 0 ? shippingCost   : undefined,
+        discountAmount: discountAmt    > 0 ? discountAmt    : undefined,
       });
 
       return NextResponse.json(
