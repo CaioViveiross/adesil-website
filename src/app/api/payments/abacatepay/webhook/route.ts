@@ -86,15 +86,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
     }
 
-    // AbacatePay v2 structure: { id, event, apiVersion, devMode, data: { externalId, metadata, ... } }
+    // AbacatePay v2 structure: { event, apiVersion, data: { checkout: { id, externalId, metadata } } }
     const event = getStringValue(payload, ["event", "type"]);
     const orderId = getStringValue(payload, [
+      "data.checkout.metadata.order_id",
+      "data.checkout.externalId",
       "data.metadata.order_id",
       "data.externalId",
-      "metadata.order_id",
-      "data.order_id",
     ]);
-    const gatewayCheckoutId = getStringValue(payload, ["data.id", "id"]);
+    const gatewayCheckoutId = getStringValue(payload, ["data.checkout.id", "data.id", "id"]);
 
     if (!event) {
       return NextResponse.json({ received: true, skipped: "no event" });

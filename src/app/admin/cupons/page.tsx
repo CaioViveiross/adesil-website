@@ -259,7 +259,7 @@ export default function CouponsPage() {
         open={deleteTarget !== null}
         title={`Excluir cupom "${deleteTarget?.code}"?`}
         description="O cupom será removido permanentemente e não poderá ser recuperado."
-        onConfirm={() => { remove(deleteTarget!); setDeleteTarget(null); }}
+        onConfirm={async () => { await remove(deleteTarget!); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />
     </AdminLayout>

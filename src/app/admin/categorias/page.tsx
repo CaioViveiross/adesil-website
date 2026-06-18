@@ -187,7 +187,7 @@ export default function AdminCategoriesPage() {
         open={deleteTarget !== null}
         title="Excluir categoria?"
         description="Produtos vinculados perderão esta categoria. Esta ação não pode ser desfeita."
-        onConfirm={() => { handleDelete(deleteTarget!); setDeleteTarget(null); }}
+        onConfirm={async () => { await handleDelete(deleteTarget!); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />
     </AdminLayout>

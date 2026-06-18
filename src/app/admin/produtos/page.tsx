@@ -46,7 +46,7 @@ export default function AdminProductsPage() {
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (search.trim()) params.set("search", search.trim());
-      const res = await fetch(`/api/products?${params}`);
+      const res = await fetch(`/api/products?${params}`, { cache: "no-store" });
       if (res.ok) setProducts(await res.json());
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -466,7 +466,7 @@ export default function AdminProductsPage() {
         open={deleteTarget !== null}
         title="Excluir produto?"
         description="O produto será desativado e não aparecerá mais na loja. Esta ação não pode ser desfeita."
-        onConfirm={() => { handleDelete(deleteTarget!); setDeleteTarget(null); }}
+        onConfirm={async () => { await handleDelete(deleteTarget!); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />
     </AdminLayout>

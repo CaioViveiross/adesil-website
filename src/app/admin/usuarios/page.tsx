@@ -254,7 +254,7 @@ export default function AdminSettingsPage() {
         open={deleteTarget !== null}
         title="Excluir usuário?"
         description="O perfil será removido permanentemente. Os pedidos associados serão mantidos."
-        onConfirm={() => { handleDeleteProfile(deleteTarget!); setDeleteTarget(null); }}
+        onConfirm={async () => { await handleDeleteProfile(deleteTarget!); setDeleteTarget(null); }}
         onCancel={() => setDeleteTarget(null)}
       />
     </AdminLayout>
