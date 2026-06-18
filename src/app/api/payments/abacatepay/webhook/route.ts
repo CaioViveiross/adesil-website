@@ -40,25 +40,26 @@ function validateWebhookSignature(
   signature: string | null,
   querySecret: string | null
 ): boolean {
-  // Prefer env var secret; fall back to query param (AbacatePay sends ?webhookSecret=... in URL)
-  const secret = process.env.ABACATEPAY_WEBHOOK_SECRET || querySecret;
-  if (!secret) return true; // dev mode: accept all
-  if (!signature) return false;
+  const envSecret = process.env.ABACATEPAY_WEBHOOK_SECRET;
 
-  const hmac = crypto.createHmac("sha256", secret).update(Buffer.from(rawBody, "utf8"));
-  const expectedBase64 = hmac.digest("base64");
-  const expectedHex    = crypto.createHmac("sha256", secret).update(Buffer.from(rawBody, "utf8")).digest("hex");
+  // Nenhum secret configurado → modo dev, aceita tudo
+  if (!envSecret) return true;
 
-  const sigBuf = Buffer.from(signature);
-  const b64Buf = Buffer.from(expectedBase64);
-  const hexBuf = Buffer.from(expectedHex);
-
-  if (sigBuf.length === b64Buf.length) {
-    return crypto.timingSafeEqual(sigBuf, b64Buf);
+  // Validação por URL (AbacatePay envia ?webhookSecret=... na URL do webhook)
+  if (querySecret !== null) {
+    return querySecret === envSecret;
   }
-  if (sigBuf.length === hexBuf.length) {
-    return crypto.timingSafeEqual(sigBuf, hexBuf);
+
+  // Validação por HMAC (assinatura no header)
+  if (signature) {
+    const b64 = crypto.createHmac("sha256", envSecret).update(rawBody, "utf8").digest("base64");
+    const hex = crypto.createHmac("sha256", envSecret).update(rawBody, "utf8").digest("hex");
+
+    const sigBuf = Buffer.from(signature);
+    if (sigBuf.length === Buffer.from(b64).length && crypto.timingSafeEqual(sigBuf, Buffer.from(b64))) return true;
+    if (sigBuf.length === Buffer.from(hex).length && crypto.timingSafeEqual(sigBuf, Buffer.from(hex))) return true;
   }
+
   return false;
 }
 
@@ -74,8 +75,10 @@ export async function POST(request: NextRequest) {
 
     const rawBody = await request.text();
 
+    console.log("[webhook] recebido — querySecret:", !!querySecret, "signature:", !!signature, "envSecret:", !!process.env.ABACATEPAY_WEBHOOK_SECRET);
+
     if (!validateWebhookSignature(rawBody, signature, querySecret)) {
-      console.error("Webhook: assinatura inválida");
+      console.error("[webhook] assinatura inválida — querySecret:", querySecret?.slice(0, 8), "signature:", signature?.slice(0, 8));
       return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
     }
 
@@ -95,6 +98,8 @@ export async function POST(request: NextRequest) {
       "data.externalId",
     ]);
     const gatewayCheckoutId = getStringValue(payload, ["data.checkout.id", "data.id", "id"]);
+
+    console.log("[webhook] event:", event, "orderId:", orderId, "checkoutId:", gatewayCheckoutId);
 
     if (!event) {
       return NextResponse.json({ received: true, skipped: "no event" });

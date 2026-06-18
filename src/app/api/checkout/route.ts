@@ -97,8 +97,9 @@ async function resolveShippingCost(
   serviceCode: string | null | undefined,
   subtotal: number,
   discountAmount: number,
+  clientShippingCost?: number, // fallback: valor já calculado e exibido ao cliente
 ): Promise<number> {
-  // Free shipping threshold takes priority over Correios price
+  // Frete grátis tem prioridade máxima
   const settings = await getSettings();
   const freeAbove = parseFloat(settings.get("shipping_free_above") ?? "");
   if (!isNaN(freeAbove) && freeAbove > 0 && subtotal - discountAmount >= freeAbove) {
@@ -111,10 +112,17 @@ async function resolveShippingCost(
       const selected = options.find((o) => o.code === serviceCode);
       if (selected) return selected.price;
       if (options.length > 0) return Math.min(...options.map((o) => o.price));
-    } catch {
-      // Correios unavailable — shipping will be R$0
+    } catch (err) {
+      console.warn("[checkout] Correios indisponível, usando frete do cliente:", err);
     }
   }
+
+  // Se Correios falhou ou não está configurado, usa o valor calculado no frontend
+  // (já foi validado e exibido ao cliente antes do checkout)
+  if (clientShippingCost && clientShippingCost > 0) {
+    return clientShippingCost;
+  }
+
   return 0;
 }
 
@@ -146,6 +154,7 @@ export async function POST(request: NextRequest) {
       items_detail,
       coupon,
       shipping_service_code,
+      shipping_cost: clientShippingCost,
     } = body;
 
     // Validate raw items array
@@ -178,7 +187,13 @@ export async function POST(request: NextRequest) {
     const subtotal      = validatedItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
     const couponData    = await fetchCoupon(supabase, coupon);
     const discountAmt   = applyDiscount(subtotal, couponData);
-    const shippingCost  = await resolveShippingCost(shipping_zipcode, shipping_service_code, subtotal, discountAmt);
+    const shippingCost  = await resolveShippingCost(
+      shipping_zipcode,
+      shipping_service_code,
+      subtotal,
+      discountAmt,
+      typeof clientShippingCost === "number" && clientShippingCost > 0 ? clientShippingCost : undefined,
+    );
     const finalTotal    = Math.round((subtotal - discountAmt + shippingCost) * 100) / 100;
     const itemCount     = validatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
