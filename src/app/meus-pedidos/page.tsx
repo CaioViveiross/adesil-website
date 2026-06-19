@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Layout from "@/components/layout/Layout";
 import { Clock, CheckCircle2, Truck, PackageCheck, ChevronRight, Package, XCircle, RotateCcw, Ban } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { parseOrderDate } from "@/lib/utils";
 import type { Order, OrderStatus } from "@/types/supabase";
 import { motion } from "framer-motion";
@@ -134,31 +135,6 @@ function OrderSkeleton() {
   );
 }
 
-function EmptyState() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-col items-center text-center gap-5 py-24"
-    >
-      <div className="relative">
-        <div className="w-20 h-20 rounded-3xl bg-secondary flex items-center justify-center">
-          <Package className="h-9 w-9 text-primary" />
-        </div>
-        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-          <span className="text-[9px] font-bold text-muted-foreground">0</span>
-        </div>
-      </div>
-      <div className="space-y-1.5 max-w-xs">
-        <p className="font-bold text-lg tracking-tight">Nenhum pedido ainda</p>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Quando você fizer sua primeira compra, o histórico de pedidos vai aparecer aqui.
-        </p>
-      </div>
-    </motion.div>
-  );
-}
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -202,7 +178,12 @@ export default function MyOrdersPage() {
             {Array.from({ length: 3 }).map((_, i) => <OrderSkeleton key={i} />)}
           </div>
         ) : orders.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            icon={Package}
+            title="Nenhum pedido ainda"
+            description="Quando você fizer sua primeira compra, o histórico de pedidos vai aparecer aqui."
+            action={{ label: "Ver produtos", href: "/categoria/todos" }}
+          />
         ) : (
           <div className="space-y-3">
             {orders.map((order, i) => {

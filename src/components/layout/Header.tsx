@@ -208,7 +208,7 @@ const Header = () => {
 
           {!loading && (
             user ? (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button className="hidden md:flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/50 transition-all duration-200 group">
                     <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
