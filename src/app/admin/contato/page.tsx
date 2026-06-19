@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Search, Archive, MailOpen, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AdminContentLoader } from "@/components/admin/AdminLoader";
@@ -174,8 +175,8 @@ export default function AdminContactPage() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                    Nenhuma mensagem encontrada.
+                  <TableCell colSpan={8}>
+                    <EmptyState variant="compact" title="Nenhuma mensagem encontrada." />
                   </TableCell>
                 </TableRow>
               )}

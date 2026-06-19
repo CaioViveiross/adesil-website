@@ -234,14 +234,25 @@ function CheckoutContent() {
       const result = await response.json();
       const checkoutUrl = result?.payment?.checkout_url;
 
-      if (checkoutUrl) {
+      if (checkoutUrl && typeof checkoutUrl === "string" && checkoutUrl.startsWith("http")) {
         clearCart();
         setRedirecting(true);
         window.location.href = checkoutUrl;
         return;
       }
 
-      if (result?.payment?.pending_configuration || result?.payment?.error) {
+      if (result?.payment?.error) {
+        toast({
+          title: "Erro ao gerar pagamento",
+          description: "Seu pedido foi criado, mas houve um erro ao gerar o link de pagamento. Você pode tentar novamente na página do pedido.",
+          variant: "destructive",
+        });
+        clearCart();
+        router.push(`/meus-pedidos/${result.order.id}?payment=pending`);
+        return;
+      }
+
+      if (result?.payment?.pending_configuration) {
         clearCart();
         router.push(`/meus-pedidos/${result.order.id}?payment=pending`);
         return;

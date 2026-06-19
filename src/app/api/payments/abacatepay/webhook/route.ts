@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Idempotency: skip if already in target status or a terminal status past it
-    const terminalStatuses: OrderStatus[] = ["refunded", "cancelled", "delivered"];
+    const terminalStatuses: OrderStatus[] = ["refunded", "cancelled", "delivered", "failed"];
     if (order.status === nextStatus) {
       return NextResponse.json({ received: true, skipped: "already_in_status", status: nextStatus });
     }

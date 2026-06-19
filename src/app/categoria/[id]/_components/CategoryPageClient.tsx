@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Layout from "@/components/layout/Layout";
 import ProductCard from "@/components/products/ProductCard";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Package, Search, X } from "lucide-react";
 import type { Product, Category } from "@/types/supabase";
 import { salePrice } from "@/lib/utils";
@@ -75,7 +76,6 @@ export default function CategoryPageClient({ slug, initialSearch = "" }: Categor
     const q = searchTerm.toLowerCase();
     return (
       p.name?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q) ||
       (Array.isArray(p.tags) && p.tags.some((t) => t.toLowerCase().includes(q)))
     );
   });
@@ -201,25 +201,12 @@ export default function CategoryPageClient({ slug, initialSearch = "" }: Categor
         </div>
 
         {!loading && sorted.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-              <Package className="h-7 w-7 text-muted-foreground/50" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold">Nenhum produto encontrado</p>
-              <p className="text-sm text-muted-foreground">
-                {searchTerm ? `Nenhum resultado para "${searchTerm}".` : "Tente outra categoria ou volte mais tarde."}
-              </p>
-            </div>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="text-sm text-primary hover:underline font-medium"
-              >
-                Limpar busca
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={Package}
+            title="Nenhum produto encontrado"
+            description={searchTerm ? `Nenhum resultado para "${searchTerm}".` : "Tente outra categoria ou volte mais tarde."}
+            action={searchTerm ? { label: "Limpar busca", onClick: () => setSearchTerm(""), variant: "outline" } : undefined}
+          />
         )}
       </div>
     </Layout>

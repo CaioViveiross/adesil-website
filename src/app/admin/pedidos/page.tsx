@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Search, Eye } from "lucide-react";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { statusLabels } from "@/types/supabase";
@@ -156,9 +157,7 @@ export default function AdminOrdersPage() {
         </div>
 
         {filteredOrders.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhum pedido encontrado.
-          </div>
+          <EmptyState variant="compact" title="Nenhum pedido encontrado." />
         )}
       </div>
     </AdminLayout>

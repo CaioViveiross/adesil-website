@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Search, UserCheck, UserX, ShoppingBag, ChevronRight } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageLoader, AdminContentLoader } from "@/components/admin/AdminLoader";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Input } from "@/components/ui/input";
@@ -152,7 +153,7 @@ export default function AdminSettingsPage() {
           </div>
 
           {filteredProfiles.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado.</div>
+            <EmptyState variant="compact" title="Nenhum usuário encontrado." />
           )}
         </div>
 
@@ -202,7 +203,7 @@ export default function AdminSettingsPage() {
               </div>
 
               {historyOrders.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground text-sm">Nenhum pedido encontrado.</p>
+                <EmptyState variant="compact" title="Nenhum pedido encontrado." />
               ) : (
                 <Table>
                   <TableHeader>

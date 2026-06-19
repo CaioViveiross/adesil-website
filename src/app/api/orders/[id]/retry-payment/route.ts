@@ -82,13 +82,24 @@ export async function POST(
       orderId: String(order.id),
       items: safeItems,
       customer: {
-        name:   order.customer_name,
-        email:  profile.email,
-        taxId:  order.document,
+        name:      order.customer_name,
+        email:     profile.email,
+        taxId:     order.document,
+        cellphone: profile.phone,
       },
       appBaseUrl,
-      source: "adesil-web-retry",
+      source:       "adesil-web-retry",
+      shippingCost: order.shipping_cost && order.shipping_cost > 0 ? order.shipping_cost : undefined,
     });
+
+    // Salva IDs recém-registrados de volta ao banco
+    if (Object.keys(checkout.newProductIds).length > 0) {
+      await Promise.allSettled(
+        Object.entries(checkout.newProductIds).map(([productId, abacatePayId]) =>
+          supabase.from("products").update({ abacatepay_product_id: abacatePayId }).eq("id", productId)
+        )
+      );
+    }
 
     return NextResponse.json({ checkout_url: checkout.url });
   } catch (error) {

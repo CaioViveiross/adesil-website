@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import type { Category } from "@/types/supabase";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
@@ -178,9 +179,7 @@ export default function AdminCategoriesPage() {
         </div>
 
         {categories.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhuma categoria encontrada.
-          </div>
+          <EmptyState variant="compact" title="Nenhuma categoria encontrada." />
         )}
       </div>
       <ConfirmDialog

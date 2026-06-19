@@ -38,7 +38,6 @@ export interface Product {
   category_id?: number;
   is_featured?: boolean;
   tags?: string[];
-  sku?: string;
   stock_quantity?: number;
   is_active?: boolean;
   deleted_at?: string;
@@ -61,7 +60,6 @@ export interface OrderItem {
   order_id: string;
   product_id?: string;
   product_name_snapshot: string;
-  sku_snapshot?: string;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -90,6 +88,8 @@ export interface Order {
   shipping_cost?: number;
   tracking_code?: string;
   tracking_carrier?: string;
+  internal_notes?: string;
+  status_history?: Array<{ status: OrderStatus; changed_at: string }>;
   /** @deprecated Use order_items table instead. Kept for backward-compat while UI migrates. */
   items_detail?: Array<{
     product_id: string;

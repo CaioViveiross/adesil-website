@@ -33,6 +33,8 @@ export interface AbacatePayCheckoutResponse {
   status: string;
   amount: number;
   devMode: boolean;
+  /** product_id local → AbacatePay product ID (apenas produtos recém-registrados nesta chamada) */
+  newProductIds: Record<string, string>;
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -77,6 +79,10 @@ async function apiFetch(path: string, body: unknown): Promise<Record<string, unk
   }
 
   if (!response.ok) {
+    // Alguns endpoints retornam o recurso existente no body do 400 (conflito de externalId)
+    const existingData = (data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+    if (existingData?.id) return existingData;
+
     const msg = (data as Record<string, unknown>)?.error ?? JSON.stringify(data);
     throw new Error(`AbacatePay (${response.status}): ${msg}`);
   }
@@ -84,24 +90,50 @@ async function apiFetch(path: string, body: unknown): Promise<Record<string, unk
   return ((data as Record<string, unknown>).data ?? data) as Record<string, unknown>;
 }
 
+async function apiFetchGet(path: string): Promise<unknown> {
+  try {
+    const response = await fetch(`${ABACATEPAY_API_BASE_URL}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${ABACATEPAY_API_KEY}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return (data as Record<string, unknown>).data ?? data;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Registra um produto no AbacatePay e retorna o ID gerado.
  * externalId usa `{product_id}_{priceInCents}` para que mudanças de preço
  * gerem uma nova entrada sem conflito com a anterior.
+ * Se o produto já existe no AbacatePay, recupera o ID via list endpoint.
  */
 async function createAbacatePayProduct(item: { product_id: string; name: string; price: number }): Promise<string> {
   const priceInCents = Math.round(item.price * 100);
   const externalId   = `${item.product_id}_${priceInCents}`;
 
-  const product = await apiFetch("/products/create", {
-    externalId,
-    name:     item.name,
-    price:    priceInCents,
-    currency: "BRL",
-  });
-
-  if (!product.id) throw new Error(`AbacatePay: produto sem ID na resposta (${item.name})`);
-  return String(product.id);
+  try {
+    const product = await apiFetch("/products/create", {
+      externalId,
+      name:     item.name,
+      price:    priceInCents,
+      currency: "BRL",
+    });
+    if (!product.id) throw new Error(`AbacatePay: produto sem ID na resposta (${item.name})`);
+    return String(product.id);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("already exists")) {
+      // Produto registrado em checkout anterior — buscar pelo list endpoint
+      const list = await apiFetchGet("/products/list");
+      const products = Array.isArray(list) ? list : [];
+      const existing = (products as Array<Record<string, unknown>>).find((p) => p.externalId === externalId);
+      if (existing?.id) return String(existing.id);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -175,18 +207,25 @@ export async function createAbacatePayCheckout(
   // 2. Obter IDs dos produtos no AbacatePay
   //    Se o item já tem abacatepay_product_id (pré-registrado no admin), usa direto.
   //    Caso contrário, registra agora (fallback para produtos legados).
+  const newProductIds: Record<string, string> = {};
   const checkoutItems = await Promise.all(
     options.items.map(async (item) => {
-      const abacatePayId = item.abacatepay_product_id
-        ?? await createAbacatePayProduct(item);
+      let abacatePayId: string;
+      if (item.abacatepay_product_id) {
+        abacatePayId = item.abacatepay_product_id;
+      } else {
+        abacatePayId = await createAbacatePayProduct(item);
+        newProductIds[item.product_id] = abacatePayId;
+      }
       return { id: abacatePayId, quantity: item.quantity };
     })
   );
 
   // Adiciona frete como item separado quando aplicável
+  // Usa orderId no product_id para garantir externalId único (evita conflito no AbacatePay)
   if (options.shippingCost && options.shippingCost > 0) {
     const shippingProductId = await createAbacatePayProduct({
-      product_id: "shipping",
+      product_id: `shipping_${options.orderId}`,
       name:       "Frete",
       price:      options.shippingCost,
     });
@@ -222,10 +261,11 @@ export async function createAbacatePayCheckout(
   if (!checkout.url) throw new Error("AbacatePay não retornou URL de pagamento");
 
   return {
-    id:      String(checkout.id ?? ""),
-    url:     String(checkout.url),
-    status:  String(checkout.status ?? "PENDING"),
-    amount:  Number(checkout.amount ?? 0),
-    devMode: Boolean(checkout.devMode ?? false),
+    id:             String(checkout.id ?? ""),
+    url:            String(checkout.url),
+    status:         String(checkout.status ?? "PENDING"),
+    amount:         Number(checkout.amount ?? 0),
+    devMode:        Boolean(checkout.devMode ?? false),
+    newProductIds,
   };
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrderById, updateOrder, deleteOrder } from "@/lib/supabase/orders";
+import type { OrderStatus } from "@/types/supabase";
 
 // GET /api/orders/[id] - Buscar pedido por ID
 export async function GET(
@@ -27,8 +28,19 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const order = await updateOrder(id, body);
 
+    // When status changes, append an entry to status_history
+    if (body.status) {
+      const current = await getOrderById(id);
+      const history: Array<{ status: OrderStatus; changed_at: string }> =
+        Array.isArray(current?.status_history) ? current.status_history : [];
+      body.status_history = [
+        ...history,
+        { status: body.status as OrderStatus, changed_at: new Date().toISOString() },
+      ];
+    }
+
+    const order = await updateOrder(id, body);
     return NextResponse.json(order);
   } catch (error) {
     console.error("Error updating order:", error);

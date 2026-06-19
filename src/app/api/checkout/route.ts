@@ -195,6 +195,9 @@ export async function POST(request: NextRequest) {
       typeof clientShippingCost === "number" && clientShippingCost > 0 ? clientShippingCost : undefined,
     );
     const finalTotal    = Math.round((subtotal - discountAmt + shippingCost) * 100) / 100;
+    if (finalTotal <= 0) {
+      return NextResponse.json({ error: "Total do pedido inválido" }, { status: 400 });
+    }
     const itemCount     = validatedItems.reduce((sum, i) => sum + i.quantity, 0);
 
     // Persist address to profile
@@ -240,7 +243,11 @@ export async function POST(request: NextRequest) {
       quantity:              item.quantity,
       unit_price:            item.unit_price,
     }));
-    await supabase.from("order_items").insert(orderItemsPayload);
+    const { error: itemsInsertError } = await supabase.from("order_items").insert(orderItemsPayload);
+    if (itemsInsertError) {
+      await supabase.from("orders").delete().eq("id", order.id);
+      throw new Error("Falha ao salvar itens do pedido: " + itemsInsertError.message);
+    }
 
     // AbacatePay integration
     const { apiKey } = getAbacatePayConfig();
@@ -275,6 +282,15 @@ export async function POST(request: NextRequest) {
         shippingCost:   shippingCost   > 0 ? shippingCost   : undefined,
         discountAmount: discountAmt    > 0 ? discountAmt    : undefined,
       });
+
+      // Salva IDs recém-registrados no AbacatePay de volta ao banco (evita re-registro no próximo checkout)
+      if (Object.keys(checkout.newProductIds).length > 0) {
+        await Promise.allSettled(
+          Object.entries(checkout.newProductIds).map(([productId, abacatePayId]) =>
+            supabase.from("products").update({ abacatepay_product_id: abacatePayId }).eq("id", productId)
+          )
+        );
+      }
 
       return NextResponse.json(
         {

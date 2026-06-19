@@ -80,7 +80,6 @@ export default async function ProductPage({ params }: Props) {
     name: product.name,
     description: product.description || product.name,
     image: product.image ? [product.image] : [],
-    sku: product.sku,
     brand: {
       "@type": "Brand",
       name: "Adesil Print",

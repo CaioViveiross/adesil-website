@@ -6,10 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Truck, ExternalLink, Copy, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Truck, Check, Package, ChevronRight, Clock, PackageCheck, MessageSquare, History } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { statusLabels } from "@/types/supabase";
 import { parseOrderDate } from "@/lib/utils";
@@ -26,10 +26,55 @@ const ALL_STATUSES: { value: OrderStatus; label: string }[] = [
   { value: "cancelled",  label: "Cancelado"    },
 ];
 
-const CARRIERS = ["Correios", "Jadlog", "Total Express", "Azul Cargo", "Latam Cargo", "Outro"];
-
 function formatCurrency(value?: number) {
   return value !== undefined ? `R$ ${value.toFixed(2).replace(".", ",")}` : "R$ 0,00";
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+interface WorkflowStep {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: { label: string; nextStatus: OrderStatus; variant?: "default" | "outline" };
+  colorClass: string;
+}
+
+function getWorkflowStep(status: OrderStatus): WorkflowStep | null {
+  switch (status) {
+    case "pending":
+      return {
+        icon: <Clock className="h-5 w-5" />,
+        title: "Aguardando pagamento",
+        description: "O pedido foi criado mas o pagamento ainda não foi confirmado. O status mudará automaticamente para 'Processando' quando o AbacatePay confirmar o pagamento.",
+        action: { label: "Forçar como Processando", nextStatus: "processing", variant: "outline" },
+        colorClass: "bg-yellow-50 border-yellow-200 text-yellow-900",
+      };
+    case "processing":
+      return {
+        icon: <PackageCheck className="h-5 w-5" />,
+        title: "Pronto para envio",
+        description: "Pagamento confirmado. Separe os produtos, embale e envie. Após despachar, marque o pedido como enviado.",
+        action: { label: "Marcar como Enviado", nextStatus: "shipped" },
+        colorClass: "bg-sky-50 border-sky-200 text-sky-900",
+      };
+    case "shipped":
+      return {
+        icon: <Truck className="h-5 w-5" />,
+        title: "Pedido a caminho",
+        description: "O pedido foi enviado e está em trânsito. Confirme a entrega assim que o cliente receber o produto.",
+        action: { label: "Confirmar Entrega", nextStatus: "delivered", variant: "outline" },
+        colorClass: "bg-purple-50 border-purple-200 text-purple-900",
+      };
+    default:
+      return null;
+  }
 }
 
 export default function AdminOrderDetailPage() {
@@ -40,10 +85,8 @@ export default function AdminOrderDetailPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(false);
-  const [savingTracking, setSavingTracking] = useState(false);
-  const [trackingCode, setTrackingCode] = useState("");
-  const [trackingCarrier, setTrackingCarrier] = useState("Correios");
-  const [copied, setCopied] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [internalNotes, setInternalNotes] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -57,8 +100,7 @@ export default function AdminOrderDetailPage() {
         if (!orderRes.ok) { router.push("/admin/pedidos"); return; }
         const orderData: Order = await orderRes.json();
         setOrder(orderData);
-        setTrackingCode(orderData.tracking_code ?? "");
-        setTrackingCarrier(orderData.tracking_carrier ?? "Correios");
+        setInternalNotes(orderData.internal_notes ?? "");
         if (itemsRes.ok) setOrderItems(await itemsRes.json());
       } catch {
         router.push("/admin/pedidos");
@@ -79,7 +121,8 @@ export default function AdminOrderDetailPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setOrder((prev) => prev ? { ...prev, status: newStatus } : prev);
+        const updated: Order = await res.json();
+        setOrder(updated);
         toast.success("Status atualizado");
       } else {
         toast.error("Erro ao atualizar status");
@@ -91,40 +134,26 @@ export default function AdminOrderDetailPage() {
     }
   };
 
-  const handleSaveTracking = async () => {
+  const handleSaveNotes = async () => {
     if (!order) return;
-    setSavingTracking(true);
+    setSavingNotes(true);
     try {
       const res = await fetch(`/api/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tracking_code:    trackingCode.trim() || null,
-          tracking_carrier: trackingCarrier || "Correios",
-        }),
+        body: JSON.stringify({ internal_notes: internalNotes.trim() || null }),
       });
       if (res.ok) {
-        setOrder((prev) => prev ? {
-          ...prev,
-          tracking_code:    trackingCode.trim() || undefined,
-          tracking_carrier: trackingCarrier,
-        } : prev);
-        toast.success("Rastreio salvo");
+        setOrder((prev) => prev ? { ...prev, internal_notes: internalNotes.trim() || undefined } : prev);
+        toast.success("Nota salva");
       } else {
-        toast.error("Erro ao salvar rastreio");
+        toast.error("Erro ao salvar nota");
       }
     } catch {
-      toast.error("Erro ao salvar rastreio");
+      toast.error("Erro ao salvar nota");
     } finally {
-      setSavingTracking(false);
+      setSavingNotes(false);
     }
-  };
-
-  const copyCode = () => {
-    if (!trackingCode) return;
-    navigator.clipboard.writeText(trackingCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   };
 
   if (loading) return <AdminPageLoader />;
@@ -132,17 +161,20 @@ export default function AdminOrderDetailPage() {
   if (!order) {
     return (
       <AdminLayout>
-        <div className="container py-20 text-center">
-          <h1 className="text-3xl font-bold mb-4">Pedido não encontrado</h1>
-          <Link href="/admin/pedidos" className="inline-flex mt-6 items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-            <ArrowLeft className="h-4 w-4" /> Voltar à lista
-          </Link>
+        <div className="container">
+          <EmptyState
+            icon={Package}
+            title="Pedido não encontrado"
+            action={{ label: "Voltar à lista", href: "/admin/pedidos", variant: "outline" }}
+          />
         </div>
       </AdminLayout>
     );
   }
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  const workflowStep = getWorkflowStep(order.status);
+  const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
 
   return (
     <AdminLayout>
@@ -161,7 +193,6 @@ export default function AdminOrderDetailPage() {
             </p>
           </div>
 
-          {/* Status editor */}
           <div className="flex items-center gap-3">
             <Select
               value={order.status}
@@ -182,6 +213,31 @@ export default function AdminOrderDetailPage() {
             </Select>
           </div>
         </div>
+
+        {/* Workflow banner */}
+        {workflowStep && (
+          <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center gap-4 ${workflowStep.colorClass}`}>
+            <div className="flex items-start gap-3 flex-1">
+              <div className="mt-0.5 shrink-0">{workflowStep.icon}</div>
+              <div>
+                <p className="font-semibold text-sm">{workflowStep.title}</p>
+                <p className="text-sm opacity-80 mt-0.5 leading-relaxed">{workflowStep.description}</p>
+              </div>
+            </div>
+            {workflowStep.action && (
+              <Button
+                size="sm"
+                variant={workflowStep.action.variant ?? "default"}
+                disabled={savingStatus}
+                onClick={() => handleStatusChange(workflowStep.action!.nextStatus)}
+                className="shrink-0 gap-1.5"
+              >
+                {savingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                {workflowStep.action.label}
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Cliente + Endereço */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -235,7 +291,6 @@ export default function AdminOrderDetailPage() {
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="pb-3 font-medium">Produto</th>
-                    <th className="pb-3 font-medium">SKU</th>
                     <th className="pb-3 font-medium">Qtd.</th>
                     <th className="pb-3 font-medium">Preço unit.</th>
                     <th className="pb-3 font-medium">Subtotal</th>
@@ -245,7 +300,6 @@ export default function AdminOrderDetailPage() {
                   {orderItems.map((item) => (
                     <tr key={item.id} className="border-b last:border-0">
                       <td className="py-3 font-medium text-foreground">{item.product_name_snapshot}</td>
-                      <td className="py-3 text-muted-foreground font-mono text-xs">{item.sku_snapshot ?? "—"}</td>
                       <td className="py-3 text-muted-foreground">{item.quantity}</td>
                       <td className="py-3 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
                       <td className="py-3 font-medium">{formatCurrency(item.unit_price * item.quantity)}</td>
@@ -278,77 +332,60 @@ export default function AdminOrderDetailPage() {
           )}
         </div>
 
-        {/* Rastreio */}
-        <div className="rounded-3xl border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-5">
-            <Truck className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Rastreio de Envio</h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Transportadora</Label>
-              <Select value={trackingCarrier} onValueChange={setTrackingCarrier}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CARRIERS.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Notas internas + Histórico lado a lado */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Notas internas */}
+          <div className="rounded-3xl border bg-card p-6 shadow-sm flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Notas Internas</h2>
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Código de Rastreio</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="AA000000000BR"
-                  value={trackingCode}
-                  onChange={(e) => setTrackingCode(e.target.value.toUpperCase())}
-                  className="font-mono"
-                />
-                {trackingCode && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-10 w-10 p-0 shrink-0"
-                    onClick={copyCode}
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button onClick={handleSaveTracking} disabled={savingTracking} className="gap-2">
-              {savingTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Salvar rastreio
+            <p className="text-xs text-muted-foreground -mt-2">Visível apenas para a equipe. Não aparece para o cliente.</p>
+            <Textarea
+              placeholder="Adicione observações sobre este pedido..."
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              rows={4}
+              className="resize-none"
+            />
+            <Button
+              onClick={handleSaveNotes}
+              disabled={savingNotes}
+              variant="outline"
+              className="self-start gap-2"
+            >
+              {savingNotes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Salvar nota
             </Button>
+          </div>
 
-            {order.tracking_code && (
-              <a
-                href={`https://rastreamento.correios.com.br/app/resultado.php?objeto=${order.tracking_code}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Rastrear nos Correios
-              </a>
+          {/* Histórico de status */}
+          <div className="rounded-3xl border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Histórico de Status</h2>
+            </div>
+
+            {statusHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma mudança de status registrada ainda.</p>
+            ) : (
+              <ol className="space-y-3">
+                {[...statusHistory].reverse().map((entry, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <div className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
+                    <div className="flex-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+                      <Badge className={statusLabels[entry.status]?.color}>
+                        {statusLabels[entry.status]?.label ?? entry.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {formatDateTime(entry.changed_at)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
-
-          {order.tracking_code && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Código atual: <span className="font-mono text-foreground">{order.tracking_code}</span>
-              {order.tracking_carrier && ` — ${order.tracking_carrier}`}
-            </p>
-          )}
         </div>
 
         <div className="flex justify-end">

@@ -4,6 +4,7 @@ import Layout from "@/components/layout/Layout";
 import { useCart } from "@/contexts/CartContext";
 import type { ShippingOption } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag, MapPin, Truck, Loader2, CheckCircle2 } from "lucide-react";
 import { salePrice } from "@/lib/utils";
@@ -98,19 +99,13 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <Layout>
-        <div className="container py-20 md:py-28 flex flex-col items-center justify-center text-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center">
-            <ShoppingBag className="h-9 w-9 text-muted-foreground/50" />
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">Seu carrinho está vazio</h1>
-            <p className="text-muted-foreground text-sm">Adicione produtos para continuar comprando.</p>
-          </div>
-          <Link href="/categoria/todos">
-            <Button className="h-11 px-6 rounded-xl font-semibold">
-              Ver produtos <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </Link>
+        <div className="container">
+          <EmptyState
+            icon={ShoppingBag}
+            title="Seu carrinho está vazio"
+            description="Adicione produtos para continuar comprando."
+            action={{ label: "Ver produtos", href: "/categoria/todos" }}
+          />
         </div>
       </Layout>
     );
