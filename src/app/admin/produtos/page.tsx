@@ -74,10 +74,6 @@ export default function AdminProductsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm, fetchProducts]);
 
-  const fetchData = async () => {
-    await fetchProducts(searchTerm);
-  };
-
   // Step 1: file selected → open crop modal
   const handleFileSelect = (file: File) => {
     const reader = new FileReader();
@@ -138,7 +134,14 @@ export default function AdminProductsPage() {
       });
 
       if (response.ok) {
-        await fetchData();
+        const saved = await response.json();
+        if (editingProduct) {
+          setProducts(prev => prev.map(p => p.id === saved.id ? saved : p));
+          toast.success('Produto atualizado');
+        } else {
+          setProducts(prev => [saved, ...prev]);
+          toast.success('Produto criado');
+        }
         setIsDialogOpen(false);
         resetForm();
       } else {
@@ -154,7 +157,7 @@ export default function AdminProductsPage() {
     try {
       const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        await fetchData();
+        setProducts(prev => prev.filter(p => p.id !== id));
         toast.success('Produto excluído');
       }
     } catch (error) {

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Plus, Edit, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Category } from "@/types/supabase";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
@@ -55,7 +56,14 @@ export default function AdminCategoriesPage() {
       });
 
       if (response.ok) {
-        await fetchData();
+        const saved = await response.json();
+        if (editingCategory) {
+          setCategories(prev => prev.map(c => c.id === saved.id ? saved : c));
+          toast.success('Categoria atualizada');
+        } else {
+          setCategories(prev => [...prev, saved].sort((a, b) => a.name.localeCompare(b.name)));
+          toast.success('Categoria criada');
+        }
         setIsDialogOpen(false);
         resetForm();
       }
@@ -67,7 +75,10 @@ export default function AdminCategoriesPage() {
   const handleDelete = async (id: string) => {
     try {
       const response = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
-      if (response.ok) await fetchData();
+      if (response.ok) {
+        setCategories(prev => prev.filter(c => c.id?.toString() !== id));
+        toast.success('Categoria excluída');
+      }
     } catch (error) {
       console.error('Error deleting category:', error);
     }
