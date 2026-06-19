@@ -27,7 +27,7 @@ export default function AdminSettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchProfiles = async () => {
-    const response = await fetch('/api/admin/profiles?limit=100');
+    const response = await fetch('/api/admin/profiles?limit=100', { cache: 'no-store' });
     if (response.ok) setProfiles(await response.json());
     setLoading(false);
   };
@@ -58,7 +58,7 @@ export default function AdminSettingsPage() {
     setHistoryOrders([]);
     setHistoryOpen(true);
     setHistoryLoading(true);
-    const res = await fetch(`/api/orders?customer_id=${profile.id}&limit=50`);
+    const res = await fetch(`/api/orders?customer_id=${profile.id}&limit=50`, { cache: 'no-store' });
     if (res.ok) setHistoryOrders(await res.json());
     setHistoryLoading(false);
   };

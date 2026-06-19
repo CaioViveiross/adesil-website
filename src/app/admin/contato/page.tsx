@@ -39,7 +39,7 @@ export default function AdminContactPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const load = async () => {
-    const res = await fetch("/api/admin/contact-messages?limit=200");
+    const res = await fetch("/api/admin/contact-messages?limit=200", { cache: 'no-store' });
     if (res.ok) setMessages(await res.json());
     setLoading(false);
   };

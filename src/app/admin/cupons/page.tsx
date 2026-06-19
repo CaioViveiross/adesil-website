@@ -42,7 +42,7 @@ export default function CouponsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Coupon | null>(null);
 
   const load = async () => {
-    const res = await fetch("/api/admin/coupons");
+    const res = await fetch("/api/admin/coupons", { cache: 'no-store' });
     if (res.ok) setCoupons(await res.json());
     setLoading(false);
   };

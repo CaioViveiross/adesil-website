@@ -35,7 +35,7 @@ export default function AdminOrdersPage() {
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const response = await fetch(`/api/orders?${params}`);
+      const response = await fetch(`/api/orders?${params}`, { cache: 'no-store' });
       if (response.ok) setOrders(await response.json());
     } catch (error) {
       console.error("Error fetching orders:", error);

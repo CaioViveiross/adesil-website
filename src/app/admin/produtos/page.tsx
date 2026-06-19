@@ -58,7 +58,7 @@ export default function AdminProductsPage() {
       try {
         const [, categoriesRes] = await Promise.all([
           fetchProducts(),
-          fetch('/api/categories'),
+          fetch('/api/categories', { cache: 'no-store' }),
         ]);
         if (categoriesRes.ok) setCategories(await categoriesRes.json());
       } finally {
