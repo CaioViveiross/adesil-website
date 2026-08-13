@@ -74,7 +74,10 @@ export default function CartPage() {
       const res = await fetch("/api/shipping/calculate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cep: digits }),
+        body: JSON.stringify({
+          cep: digits,
+          items: items.map((i) => ({ product_id: i.product.id, quantity: i.quantity })),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabaseServer";
 import { createOrder } from "@/lib/supabase/orders";
 import { getCurrentProfile, updateProfile } from "@/lib/supabase/auth";
 import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
-import { calculateShipping, isCorreiosConfigured } from "@/lib/correios";
+import { calculateShipping, isCorreiosConfigured, getFallbackWeightGrams } from "@/lib/correios";
 import { getSettings } from "@/lib/supabase/settings";
 import type { Order } from "@/types/supabase";
 
@@ -39,6 +39,7 @@ interface ValidatedItem {
   product_name_snapshot:   string;
   quantity:                number;
   unit_price:              number;
+  weight_grams:            number | null;
   abacatepay_product_id?:  string | null;
 }
 
@@ -55,7 +56,7 @@ async function validateAndPriceItems(
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name, price, discount, is_active, deleted_at, abacatepay_product_id")
+    .select("id, name, price, discount, is_active, deleted_at, weight_grams, abacatepay_product_id")
     .in("id", ids);
 
   if (error) throw new Error("Falha ao buscar produtos: " + error.message);
@@ -81,6 +82,7 @@ async function validateAndPriceItems(
       product_name_snapshot:  product.name,
       quantity:               item.quantity,
       unit_price:             unitPrice,
+      weight_grams:           product.weight_grams ?? null,
       abacatepay_product_id:  product.abacatepay_product_id ?? null,
     };
   });
@@ -97,6 +99,7 @@ async function resolveShippingCost(
   serviceCode: string | null | undefined,
   subtotal: number,
   discountAmount: number,
+  totalWeight: number,
   clientShippingCost?: number, // fallback: valor já calculado e exibido ao cliente
 ): Promise<number> {
   // Frete grátis tem prioridade máxima
@@ -108,7 +111,7 @@ async function resolveShippingCost(
 
   if ((await isCorreiosConfigured()) && destinationZip && serviceCode) {
     try {
-      const options = await calculateShipping(destinationZip);
+      const options = await calculateShipping(destinationZip, totalWeight);
       const selected = options.find((o) => o.code === serviceCode);
       if (selected) return selected.price;
       if (options.length > 0) return Math.min(...options.map((o) => o.price));
@@ -187,11 +190,18 @@ export async function POST(request: NextRequest) {
     const subtotal      = validatedItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
     const couponData    = await fetchCoupon(supabase, coupon);
     const discountAmt   = applyDiscount(subtotal, couponData);
+    // Peso total do pedido: soma dos pesos individuais (fallback global por unidade)
+    const fallbackWeight = await getFallbackWeightGrams();
+    const totalWeight   = validatedItems.reduce(
+      (sum, i) => sum + (i.weight_grams && i.weight_grams > 0 ? i.weight_grams : fallbackWeight) * i.quantity,
+      0,
+    );
     const shippingCost  = await resolveShippingCost(
       shipping_zipcode,
       shipping_service_code,
       subtotal,
       discountAmt,
+      totalWeight,
       typeof clientShippingCost === "number" && clientShippingCost > 0 ? clientShippingCost : undefined,
     );
     const finalTotal    = Math.round((subtotal - discountAmt + shippingCost) * 100) / 100;

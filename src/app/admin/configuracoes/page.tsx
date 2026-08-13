@@ -35,7 +35,7 @@ const CORREIOS_CREDENTIAL_FIELDS: FieldDef[] = [
 
 const CORREIOS_FIELDS: FieldDef[] = [
   { key: "correios_origin_zip",   label: "CEP de Origem",      placeholder: "Ex: 01310100", hint: "CEP do remetente, sem hífen" },
-  { key: "correios_weight_grams", label: "Peso do Pacote (g)", placeholder: "Ex: 300",      type: "number", hint: "Peso padrão em gramas" },
+  { key: "correios_weight_grams", label: "Peso Padrão (g)",    placeholder: "Ex: 300",      type: "number", hint: "Fallback por unidade para produtos sem peso cadastrado" },
 ];
 
 

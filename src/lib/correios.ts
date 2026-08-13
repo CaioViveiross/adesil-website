@@ -77,13 +77,29 @@ export interface ShippingOption {
   deadlineDays: number;
 }
 
-export async function calculateShipping(destinationZip: string): Promise<ShippingOption[]> {
+/**
+ * Peso unitário de fallback (gramas) para produtos sem peso cadastrado.
+ * Usa a configuração global "correios_weight_grams" (env/DB).
+ */
+export async function getFallbackWeightGrams(): Promise<number> {
+  const config = await getCorreiosConfig();
+  return config.weightGrams;
+}
+
+export async function calculateShipping(
+  destinationZip: string,
+  weightGrams?: number,
+): Promise<ShippingOption[]> {
   const config = await getCorreiosConfig();
   if (!config.originZip) throw new Error("CEP de origem não configurado");
 
   const token = await authenticate(config);
   const origin = config.originZip.replace(/\D/g, "");
   const destination = destinationZip.replace(/\D/g, "");
+
+  // Peso total do pacote: soma dos pesos individuais dos itens.
+  // Fallback para o peso configurado quando não informado.
+  const packageWeight = weightGrams && weightGrams > 0 ? Math.round(weightGrams) : config.weightGrams;
 
   const services = [
     { code: config.pacCode,   name: "PAC"   },
@@ -96,7 +112,7 @@ export async function calculateShipping(destinationZip: string): Promise<Shippin
     parametrosProduto: services.map((s, i) => ({
       nuRequisicao:  String(i + 1),
       coProduto:     s.code,
-      psObjeto:      String(config.weightGrams),
+      psObjeto:      String(packageWeight),
       tpObjeto:      "2",   // 2 = Caixa/Pacote
       comprimento:   "16",
       largura:       "11",

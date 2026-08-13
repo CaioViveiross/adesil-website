@@ -37,6 +37,7 @@ export default function AdminProductsPage() {
     description: "",
     price: "",
     discount: "0",
+    weight_grams: "",
     image: "",
     category_id: "" as string | number,
     tags: "",
@@ -119,6 +120,7 @@ export default function AdminProductsPage() {
       ...formData,
       price: parseFloat(formData.price),
       discount: parseInt(formData.discount || "0", 10),
+      weight_grams: formData.weight_grams.trim() ? parseInt(formData.weight_grams, 10) : null,
       category_id: formData.category_id ? parseInt(formData.category_id.toString()) : undefined,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     };
@@ -172,6 +174,7 @@ export default function AdminProductsPage() {
       description: product.description || "",
       price: product.price.toString(),
       discount: (product.discount ?? 0).toString(),
+      weight_grams: product.weight_grams != null ? product.weight_grams.toString() : "",
       image: product.image || "",
       category_id: product.category_id?.toString() || "",
       tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
@@ -186,6 +189,7 @@ export default function AdminProductsPage() {
       description: "",
       price: "",
       discount: "0",
+      weight_grams: "",
       image: "",
       category_id: "",
       tags: "",
@@ -317,6 +321,22 @@ export default function AdminProductsPage() {
                 </p>
               )}
 
+              <div>
+                <Label htmlFor="weight_grams">Peso (g) <span className="text-muted-foreground font-normal">(para cálculo de frete)</span></Label>
+                <Input
+                  id="weight_grams"
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="ex: 300"
+                  value={formData.weight_grams}
+                  onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se vazio, usa o peso padrão configurado nos Correios.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="image">Imagem do Produto</Label>
@@ -397,6 +417,7 @@ export default function AdminProductsPage() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Preço</TableHead>
+                <TableHead>Peso</TableHead>
                 <TableHead>Destaque</TableHead>
                 <TableHead>Tags</TableHead>
                 <TableHead className="w-24">Ações</TableHead>
@@ -418,6 +439,11 @@ export default function AdminProductsPage() {
                     ) : (
                       `R$ ${product.price.toFixed(2).replace(".", ",")}`
                     )}
+                  </TableCell>
+                  <TableCell>
+                    {product.weight_grams != null
+                      ? `${product.weight_grams} g`
+                      : <span className="text-muted-foreground text-xs">padrão</span>}
                   </TableCell>
                   <TableCell>
                     <Switch

@@ -39,6 +39,8 @@ export interface Product {
   is_featured?: boolean;
   tags?: string[];
   stock_quantity?: number;
+  /** Peso unitário em gramas, usado no cálculo individual de frete. */
+  weight_grams?: number;
   is_active?: boolean;
   deleted_at?: string;
   created_at?: string;

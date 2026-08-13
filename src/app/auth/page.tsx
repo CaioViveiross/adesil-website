@@ -67,7 +67,7 @@ function AuthContent() {
         }
         const result = await signUp(formData.email, formData.password, formData.name);
         if (result.success) {
-          toast({ title: "Conta criada!", description: "Verifique seu e-mail para confirmar o cadastro." });
+          toast({ title: "Conta criada!", description: "Bem-vindo à Adesil! Seu cadastro foi concluído." });
           router.push("/");
         } else {
           toast({ title: "Erro", description: result.error || "Erro ao criar conta", variant: "destructive" });

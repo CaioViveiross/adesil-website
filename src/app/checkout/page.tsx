@@ -153,7 +153,10 @@ function CheckoutContent() {
         const res = await fetch("/api/shipping/calculate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cep: cepDigits }),
+          body: JSON.stringify({
+            cep: cepDigits,
+            items: items.map((i) => ({ product_id: i.product.id, quantity: i.quantity })),
+          }),
         });
         if (!res.ok) return; // Fall back to static if API unavailable
         const data = await res.json();
