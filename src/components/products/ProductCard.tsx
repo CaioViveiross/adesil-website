@@ -6,6 +6,7 @@ import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/types/supabase";
+import DiscountBadge from "@/components/products/DiscountBadge";
 import { salePrice } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -70,14 +71,17 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </Link>
         </div>
 
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
           <span className="text-lg font-bold text-foreground leading-none">
             R$ {salePrice(product).toFixed(2).replace(".", ",")}
           </span>
           {!!product.discount && (
-            <span className="text-xs text-muted-foreground line-through leading-none">
-              R$ {product.price.toFixed(2).replace(".", ",")}
-            </span>
+            <>
+              <span className="text-xs text-muted-foreground line-through leading-none">
+                R$ {product.price.toFixed(2).replace(".", ",")}
+              </span>
+              <DiscountBadge discount={product.discount} />
+            </>
           )}
         </div>
 

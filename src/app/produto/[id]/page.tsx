@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Package } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabaseServer";
 import { salePrice } from "@/lib/utils";
 import ProductActions from "./_components/ProductActions";
+import ProductDescription from "./_components/ProductDescription";
+import ProductGallery from "./_components/ProductGallery";
+import { normalizeSections } from "@/lib/productDescription";
+import { galleryImages } from "@/lib/productImages";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://adesilprint.com.br";
 
@@ -52,9 +55,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${product.name} | Adesil Print`,
       description,
       url: `${APP_URL}/produto/${id}`,
-      images: product.image
-        ? [{ url: product.image, alt: product.name, width: 800, height: 800 }]
-        : [],
+      images: galleryImages(product).map((url) => ({
+        url,
+        alt: product.name,
+        width: 800,
+        height: 800,
+      })),
       type: "website",
     },
     alternates: {
@@ -73,13 +79,15 @@ export default async function ProductPage({ params }: Props) {
 
   const price = salePrice(product);
   const categorySlug = (product.categories as { slug?: string } | null)?.slug ?? product.category_id;
+  const sections = normalizeSections(product.description_sections);
+  const images = galleryImages(product);
 
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.description || product.name,
-    image: product.image ? [product.image] : [],
+    image: images,
     brand: {
       "@type": "Brand",
       name: "Adesil Print",
@@ -120,23 +128,8 @@ export default async function ProductPage({ params }: Props) {
         </nav>
 
         <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-start">
-          {/* Imagem otimizada */}
-          <div className="aspect-square rounded-2xl overflow-hidden bg-muted border border-border relative">
-            {product.image ? (
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-16 w-16 text-muted-foreground/30" />
-              </div>
-            )}
-          </div>
+          {/* Galeria (client component: alterna a imagem em destaque) */}
+          <ProductGallery images={images} productName={product.name} />
 
           {/* Detalhes */}
           <div className="space-y-6 pt-1">
@@ -158,7 +151,7 @@ export default async function ProductPage({ params }: Props) {
                 {product.name}
               </h1>
               {product.description && (
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3">
                   {product.description}
                 </p>
               )}
@@ -168,6 +161,9 @@ export default async function ProductPage({ params }: Props) {
             <ProductActions product={product} />
           </div>
         </div>
+
+        {/* Descrição completa no padrão da loja */}
+        <ProductDescription description={product.description} sections={sections} />
       </div>
     </Layout>
   );

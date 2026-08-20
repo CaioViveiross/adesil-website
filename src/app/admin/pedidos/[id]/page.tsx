@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Truck, Check, Package, ChevronRight, Clock, PackageCheck, MessageSquare, History } from "lucide-react";
+import { ArrowLeft, Loader2, Truck, Check, Package, ChevronRight, Clock, PackageCheck, MessageSquare, History, Printer } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { statusLabels } from "@/types/supabase";
@@ -194,6 +194,13 @@ export default function AdminOrderDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button variant="outline" asChild className="gap-1.5">
+              <Link href={`/admin/pedidos/${order.id}/ordem-producao`}>
+                <Printer className="h-4 w-4" />
+                Ordem de produção
+              </Link>
+            </Button>
+
             <Select
               value={order.status}
               onValueChange={(v) => handleStatusChange(v as OrderStatus)}

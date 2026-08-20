@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag, MapPin, Truck, Loader2, CheckCircle2 } from "lucide-react";
 import { salePrice } from "@/lib/utils";
+import DiscountBadge from "@/components/products/DiscountBadge";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
@@ -149,10 +150,13 @@ export default function CartPage() {
                       </h3>
                     </Link>
                   </div>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
                     <p className="text-base font-bold">R$ {salePrice(item.product).toFixed(2).replace(".", ",")}</p>
                     {!!item.product.discount && (
-                      <p className="text-xs text-muted-foreground line-through">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
+                      <>
+                        <p className="text-xs text-muted-foreground line-through">R$ {item.product.price.toFixed(2).replace(".", ",")}</p>
+                        <DiscountBadge discount={item.product.discount} />
+                      </>
                     )}
                   </div>
                   <div className="flex items-center justify-between">

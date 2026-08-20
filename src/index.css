@@ -145,3 +145,24 @@
   background-color: hsl(var(--primary) / 0.15);
   color: hsl(var(--primary));
 }
+
+/* ── Impressão (ordem de produção) ──────────────────────────────────────────
+   A folha é desenhada em mm; a margem fica a cargo do @page para o navegador
+   respeitar a área imprimível. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff;
+  }
+
+  /* Cores de fundo/borda em tabelas só saem no papel com isto */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -5,9 +5,9 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,8 +16,25 @@ import { toast } from "sonner";
 import type { Product, Category } from "@/types/supabase";
 import { supabase } from "@/lib/supabaseClient";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
+import { ProductImagesField } from "@/components/admin/ProductImagesField";
+import { MAX_PRODUCT_IMAGES, galleryImages } from "@/lib/productImages";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import {
+  ProductDescriptionFields,
+  countFilledSections,
+  emptyDescriptionSectionsForm,
+  type DescriptionSectionsForm,
+} from "@/components/admin/ProductDescriptionFields";
+import {
+  cleanFaq,
+  isEmptySections,
+  joinSpecs,
+  normalizeSections,
+  parseLines,
+  serializeLines,
+  splitSpecs,
+} from "@/lib/productDescription";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,10 +55,14 @@ export default function AdminProductsPage() {
     price: "",
     discount: "0",
     weight_grams: "",
-    image: "",
+    images: [] as string[],
     category_id: "" as string | number,
     tags: "",
   });
+  const [sectionsForm, setSectionsForm] = useState<DescriptionSectionsForm>(
+    emptyDescriptionSectionsForm
+  );
+  const [activeTab, setActiveTab] = useState("geral");
 
   const fetchProducts = useCallback(async (search = "") => {
     try {
@@ -103,7 +124,10 @@ export default function AdminProductsPage() {
         .from("Adesil Bucket")
         .getPublicUrl(filePath);
 
-      setFormData((prev) => ({ ...prev, image: publicUrl }));
+      setFormData((prev) => ({
+        ...prev,
+        images: [...prev.images, publicUrl].slice(0, MAX_PRODUCT_IMAGES),
+      }));
     } catch (error) {
       console.error("Erro no upload:", error);
       toast.error(`Erro ao fazer upload: ${error.message}`);
@@ -116,8 +140,37 @@ export default function AdminProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // O Radix desmonta as abas inativas, então o `required` do HTML não alcança
+    // campos que estão fora da aba visível — a validação precisa ser manual.
+    const priceValue = parseFloat(formData.price);
+
+    if (!formData.name.trim()) {
+      setActiveTab("geral");
+      toast.error("Informe o nome do produto.");
+      return;
+    }
+
+    if (!formData.price.trim() || Number.isNaN(priceValue) || priceValue < 0) {
+      setActiveTab("comercial");
+      toast.error("Informe um preço válido.");
+      return;
+    }
+
+    const sections = {
+      benefits:         parseLines(sectionsForm.benefits),
+      specs:            joinSpecs(sectionsForm.specs, sectionsForm.specsExtra),
+      package_contents: parseLines(sectionsForm.package_contents),
+      compatibility:    parseLines(sectionsForm.compatibility),
+      usage:            parseLines(sectionsForm.usage),
+      faq:              cleanFaq(sectionsForm.faq),
+    };
+
     const productData = {
       ...formData,
+      // `image` segue sendo a capa: cards, carrinho, OpenGraph e JSON-LD leem dela.
+      image: formData.images[0] ?? "",
+      // Grava null quando nada foi preenchido, em vez de um objeto de listas vazias.
+      description_sections: isEmptySections(sections) ? null : sections,
       price: parseFloat(formData.price),
       discount: parseInt(formData.discount || "0", 10),
       weight_grams: formData.weight_grams.trim() ? parseInt(formData.weight_grams, 10) : null,
@@ -175,10 +228,24 @@ export default function AdminProductsPage() {
       price: product.price.toString(),
       discount: (product.discount ?? 0).toString(),
       weight_grams: product.weight_grams != null ? product.weight_grams.toString() : "",
-      image: product.image || "",
+      images: galleryImages(product),
       category_id: product.category_id?.toString() || "",
       tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
     });
+
+    const saved = normalizeSections(product.description_sections);
+    const specs = splitSpecs(saved?.specs);
+    setSectionsForm({
+      benefits:         serializeLines(saved?.benefits),
+      specs:            specs.fixed,
+      specsExtra:       specs.extra,
+      package_contents: serializeLines(saved?.package_contents),
+      compatibility:    serializeLines(saved?.compatibility),
+      usage:            serializeLines(saved?.usage),
+      faq:              saved?.faq ?? [],
+    });
+
+    setActiveTab("geral");
     setIsDialogOpen(true);
   };
 
@@ -190,10 +257,12 @@ export default function AdminProductsPage() {
       price: "",
       discount: "0",
       weight_grams: "",
-      image: "",
+      images: [],
       category_id: "",
       tags: "",
     });
+    setSectionsForm(emptyDescriptionSectionsForm);
+    setActiveTab("geral");
   };
 
   const handleToggleFeatured = async (product: Product, checked: boolean) => {
@@ -227,6 +296,8 @@ export default function AdminProductsPage() {
     }
   };
 
+  const filledSections = countFilledSections(sectionsForm, formData.description);
+
   if (loading) return <AdminPageLoader />;
 
   return (
@@ -241,153 +312,160 @@ export default function AdminProductsPage() {
                 Novo Produto
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
+            <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
               <DialogTitle>{editingProduct ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              <div>
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="flex flex-col flex-1 min-h-0"
+              >
+                <TabsList className="mx-6 shrink-0 grid grid-cols-3">
+                  <TabsTrigger value="geral">Geral</TabsTrigger>
+                  <TabsTrigger value="descricao" className="gap-1.5">
+                    Descrição
+                    {filledSections > 0 && (
+                      <span className="rounded-full bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 tabular-nums leading-none">
+                        {filledSections}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="comercial">Preço e envio</TabsTrigger>
+                </TabsList>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="price">Preço (R$) *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="discount">Desconto (%)</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={formData.discount}
-                    onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
-                  />
-                </div>
-              </div>
-              {Number(formData.discount) > 0 && Number(formData.price) > 0 && (
-                <p className="text-sm text-muted-foreground -mt-2">
-                  Preço final:{" "}
-                  <span className="font-semibold text-foreground">
-                    R$ {(Number(formData.price) * (1 - Number(formData.discount) / 100)).toFixed(2).replace(".", ",")}
-                  </span>
-                  <span className="ml-2 line-through">
-                    R$ {Number(formData.price).toFixed(2).replace(".", ",")}
-                  </span>
-                </p>
-              )}
+                {/* Só esta região rola — cabeçalho, abas e rodapé ficam fixos */}
+                <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
 
-              <div>
-                <Label htmlFor="weight_grams">Peso (g) <span className="text-muted-foreground font-normal">(para cálculo de frete)</span></Label>
-                <Input
-                  id="weight_grams"
-                  type="number"
-                  step="1"
-                  min="0"
-                  placeholder="ex: 300"
-                  value={formData.weight_grams}
-                  onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Se vazio, usa o peso padrão configurado nos Correios.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="image">Imagem do Produto</Label>
-                  <div className="space-y-2">
-                    <Input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileSelect(file);
-                        e.target.value = "";
-                      }}
-                      disabled={uploading}
-                    />
-                    {uploading && <p className="text-sm text-muted-foreground">Fazendo upload…</p>}
-                    {formData.image && !uploading && (
-                      <div className="relative w-20 h-20 group">
-                        <img
-                          src={formData.image}
-                          alt="Preview"
-                          className="w-20 h-20 object-cover rounded-lg border"
+                  <TabsContent value="geral" className="mt-0 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Nome *</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
                         />
-                        <button
-                          type="button"
-                          onClick={() => setFormData((p) => ({ ...p, image: "" }))}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remover imagem"
-                        >
-                          ×
-                        </button>
+                      </div>
+                      <div>
+                        <Label htmlFor="category">Categoria</Label>
+                        <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id.toString()}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <ProductImagesField
+                      images={formData.images}
+                      onChange={(images) => setFormData((prev) => ({ ...prev, images }))}
+                      onSelectFile={handleFileSelect}
+                      uploading={uploading}
+                    />
+
+                    <div>
+                      <Label htmlFor="tags">Tags <span className="text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
+                      <Input
+                        id="tags"
+                        placeholder="ex: Novo produto, Em destaque"
+                        value={formData.tags}
+                        onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="descricao" className="mt-0">
+                    <ProductDescriptionFields
+                    value={sectionsForm}
+                    onChange={setSectionsForm}
+                    description={formData.description}
+                    onDescriptionChange={(description) =>
+                      setFormData((prev) => ({ ...prev, description }))
+                    }
+                  />
+                  </TabsContent>
+
+                  <TabsContent value="comercial" className="mt-0 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="price">Preço (R$) *</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.price}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="discount">Desconto (%)</Label>
+                        <Input
+                          id="discount"
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="100"
+                          value={formData.discount}
+                          onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {Number(formData.discount) > 0 && Number(formData.price) > 0 && (
+                      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+                        <span className="text-sm text-muted-foreground">Preço final:</span>
+                        <span className="text-sm font-semibold text-foreground">
+                          R$ {(Number(formData.price) * (1 - Number(formData.discount) / 100)).toFixed(2).replace(".", ",")}
+                        </span>
+                        <span className="text-xs text-muted-foreground line-through">
+                          R$ {Number(formData.price).toFixed(2).replace(".", ",")}
+                        </span>
+                        <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-md leading-none uppercase tracking-wide">
+                          {Number(formData.discount)}% off
+                        </span>
                       </div>
                     )}
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="tags">Tags <span className="text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
-                  <Input
-                    id="tags"
-                    placeholder="ex: Novo produto, Em destaque"
-                    value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  />
-                </div>
-              </div>
 
-              <div className="flex justify-end gap-2">
+                    <div>
+                      <Label htmlFor="weight_grams">Peso (g) <span className="text-muted-foreground font-normal">(para cálculo de frete)</span></Label>
+                      <Input
+                        id="weight_grams"
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="ex: 300"
+                        value={formData.weight_grams}
+                        onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Se vazio, usa o peso padrão configurado nos Correios.
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                </div>
+              </Tabs>
+
+              {/* Rodapé fixo: as ações ficam sempre visíveis, mesmo com a
+                  aba de descrição inteira preenchida */}
+              <div className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-6 py-4 bg-background">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={uploading}>
                   {editingProduct ? 'Atualizar' : 'Criar'}
                 </Button>
               </div>

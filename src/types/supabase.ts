@@ -28,17 +28,54 @@ export interface ContactMessage {
   updated_at?: string;
 }
 
+/** Par rótulo/valor da seção "Especificações". */
+export interface ProductSpec {
+  label: string;
+  value: string;
+}
+
+/** Pergunta e resposta da seção "Dúvidas frequentes". */
+export interface ProductFaq {
+  question: string;
+  answer: string;
+}
+
+/**
+ * Descrição estruturada do produto, seguindo o padrão da loja.
+ * Todas as seções são opcionais — só aparecem na página quando preenchidas.
+ * A apresentação breve continua em `Product.description`.
+ */
+export interface ProductDescriptionSections {
+  /** Principais benefícios — 3 a 6 itens objetivos. */
+  benefits?: string[];
+  /** Especificações técnicas (dimensões, material, cor, tipo, quantidade...). */
+  specs?: ProductSpec[];
+  /** Conteúdo da embalagem — o que o cliente efetivamente recebe. */
+  package_contents?: string[];
+  /** Compatibilidade / aplicações — equipamentos, softwares, plataformas. */
+  compatibility?: string[];
+  /** Indicação de uso — onde e para quem o produto é indicado. */
+  usage?: string[];
+  /** Dúvidas frequentes — opcional, só quando fizer sentido. */
+  faq?: ProductFaq[];
+}
+
 export interface Product {
   id: string;
   name: string;
   description?: string;
   price: number;
   discount?: number;
+  /** Capa do produto — espelha `images[0]`. Usada em cards, carrinho e SEO. */
   image?: string;
+  /** Galeria do produto, no máximo 4 itens, capa primeiro. */
+  images?: string[];
   category_id?: number;
   is_featured?: boolean;
   tags?: string[];
   stock_quantity?: number;
+  /** Descrição estruturada (padrão da loja). `description` segue como apresentação breve. */
+  description_sections?: ProductDescriptionSections;
   /** Peso unitário em gramas, usado no cálculo individual de frete. */
   weight_grams?: number;
   is_active?: boolean;

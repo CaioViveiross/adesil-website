@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/types/supabase";
 import { salePrice } from "@/lib/utils";
+import DiscountBadge from "@/components/products/DiscountBadge";
 
 interface ProductActionsProps {
   product: Product;
@@ -31,9 +32,12 @@ export default function ProductActions({ product }: ProductActionsProps) {
             R$ {product.price.toFixed(2).replace(".", ",")}
           </p>
         )}
-        <p className="text-3xl font-bold text-foreground">
-          R$ {salePrice(product).toFixed(2).replace(".", ",")}
-        </p>
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+          <p className="text-3xl font-bold text-foreground">
+            R$ {salePrice(product).toFixed(2).replace(".", ",")}
+          </p>
+          <DiscountBadge discount={product.discount} size="md" />
+        </div>
         <p className="text-xs text-muted-foreground">
           ou 3× de R$ {(salePrice(product) / 3).toFixed(2).replace(".", ",")} sem juros
         </p>
