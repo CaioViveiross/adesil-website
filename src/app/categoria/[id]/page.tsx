@@ -6,7 +6,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://adesilprint.com.br";
 
 interface Props {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; cats?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -55,6 +55,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryPage({ params, searchParams }: Props) {
   const { id: slug } = await params;
-  const { q } = await searchParams;
-  return <CategoryPageClient slug={slug} initialSearch={q ?? ""} />;
+  const { q, cats } = await searchParams;
+
+  // Filtro lido no servidor e passado como prop: evita precisar de
+  // useSearchParams (e do Suspense que ele exige) no componente cliente.
+  const initialCategories = cats
+    ? cats.split(",").map((value) => value.trim()).filter(Boolean)
+    : slug !== "todos"
+      ? [slug]
+      : [];
+
+  return (
+    <CategoryPageClient
+      slug={slug}
+      initialSearch={q ?? ""}
+      initialCategories={initialCategories}
+    />
+  );
 }

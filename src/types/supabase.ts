@@ -16,6 +16,8 @@ export interface BusinessCategory {
   id: number;
   name: string;
   image?: string;
+  /** Slug da categoria real para onde o card leva; null quando ela não está publicada. */
+  slug?: string | null;
 }
 
 export interface ContactMessage {
@@ -70,7 +72,10 @@ export interface Product {
   image?: string;
   /** Galeria do produto, no máximo 4 itens, capa primeiro. */
   images?: string[];
+  /** Categoria principal — define breadcrumb e URL canônica. Espelha `category_ids[0]`. */
   category_id?: number;
+  /** Todas as categorias do produto (tabela `product_categories`). */
+  category_ids?: number[];
   is_featured?: boolean;
   tags?: string[];
   stock_quantity?: number;

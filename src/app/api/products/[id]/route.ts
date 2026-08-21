@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 import { syncProductToAbacatePay } from "@/lib/abacatePay";
+import { replaceProductCategories } from "@/lib/productCategories";
 
 async function getFeaturedProductsCount(supabase: Awaited<ReturnType<typeof createClient>>, excludingProductId?: string) {
   let query = supabase
@@ -88,14 +89,14 @@ export async function PUT(
       }
     }
 
-    if (productData.category_id !== undefined && productData.category_id !== null) {
-      const parsedCategory = parseInt(productData.category_id.toString(), 10);
-      if (!Number.isNaN(parsedCategory)) {
-        productData.category_id = parsedCategory;
-      } else {
-        delete productData.category_id;
-      }
-    }
+    // `category_ids` vive na tabela de junção. Só reescreve quando o campo vem
+    // no payload — um PATCH parcial sem ele não deve zerar as categorias.
+    const hasCategoryIds = Array.isArray(productData.category_ids);
+    const categoryIds: number[] = hasCategoryIds
+      ? productData.category_ids.map(Number).filter(Number.isInteger)
+      : [];
+    delete productData.category_ids;
+    if (hasCategoryIds) productData.category_id = categoryIds[0] ?? null;
 
     // Atualizar o produto
     const { data: product, error: productError } = await supabase
@@ -106,6 +107,11 @@ export async function PUT(
       .single();
 
     if (productError) throw productError;
+
+    if (hasCategoryIds) {
+      await replaceProductCategories(supabase, Number(id), categoryIds);
+      product.category_ids = categoryIds;
+    }
 
     // Se preço ou desconto mudou, re-registra no AbacatePay com o novo valor (não-fatal)
     const priceChanged = body.price !== undefined || body.discount !== undefined;

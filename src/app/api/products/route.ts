@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 import { syncProductToAbacatePay } from "@/lib/abacatePay";
+import {
+  attachCategoryIds,
+  productIdsInCategory,
+  replaceProductCategories,
+} from "@/lib/productCategories";
 
 /**
  * Este endpoint serve a vitrine e o painel admin. Um cache compartilhado
@@ -60,6 +65,19 @@ export async function GET(request: NextRequest) {
       searchParams.get("include_inactive") === "true"
     );
 
+    // Um produto pode estar em várias categorias, então o filtro passa pela
+    // tabela de junção em vez de comparar products.category_id.
+    let categoryProductIds: number[] | null = null;
+    if (categoryParam) {
+      if (Number.isNaN(categoryId)) {
+        return NextResponse.json([], { status: 200 });
+      }
+      categoryProductIds = await productIdsInCategory(supabase, categoryId!);
+      if (categoryProductIds.length === 0) {
+        return NextResponse.json([], { headers: { "Cache-Control": NO_STORE } });
+      }
+    }
+
     if (featuredParam === "true") {
       let featuredQuery = supabase
         .from("products")
@@ -71,11 +89,8 @@ export async function GET(request: NextRequest) {
 
       if (!includeInactive) featuredQuery = featuredQuery.eq("is_active", true);
 
-      if (categoryParam) {
-        if (Number.isNaN(categoryId)) {
-          return NextResponse.json([], { status: 200 });
-        }
-        featuredQuery = featuredQuery.eq("category_id", categoryId);
+      if (categoryProductIds) {
+        featuredQuery = featuredQuery.in("id", categoryProductIds);
       }
 
       const { data: featuredProducts, error: featuredError } = await featuredQuery;
@@ -95,8 +110,8 @@ export async function GET(request: NextRequest) {
 
       if (!includeInactive) recentQuery = recentQuery.eq("is_active", true);
 
-      if (categoryParam) {
-        recentQuery = recentQuery.eq("category_id", categoryId);
+      if (categoryProductIds) {
+        recentQuery = recentQuery.in("id", categoryProductIds);
       }
 
       const { data: recentProducts, error: recentError } = await recentQuery;
@@ -107,9 +122,10 @@ export async function GET(request: NextRequest) {
         .filter((product: { id: string; is_featured?: boolean }) => !product.is_featured && !featuredIds.has(product.id))
         .slice(0, Math.max(limit - selectedFeatured.length, 0));
 
-      return NextResponse.json([...selectedFeatured, ...fallbackProducts], {
-        headers: { "Cache-Control": NO_STORE },
-      });
+      return NextResponse.json(
+        await attachCategoryIds(supabase, [...selectedFeatured, ...fallbackProducts]),
+        { headers: { "Cache-Control": NO_STORE } }
+      );
     }
 
     let query = supabase
@@ -120,11 +136,8 @@ export async function GET(request: NextRequest) {
 
     if (!includeInactive) query = query.eq("is_active", true);
 
-    if (categoryParam) {
-      if (Number.isNaN(categoryId)) {
-        return NextResponse.json([], { status: 200 });
-      }
-      query = query.eq("category_id", categoryId);
+    if (categoryProductIds) {
+      query = query.in("id", categoryProductIds);
     }
 
     if (searchParam) {
@@ -135,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(data || [], {
+    return NextResponse.json(await attachCategoryIds(supabase, data || []), {
       headers: { "Cache-Control": NO_STORE },
     });
   } catch (error) {
@@ -187,14 +200,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (productData.category_id !== undefined && productData.category_id !== null) {
-      const parsedCategory = parseInt(productData.category_id.toString(), 10);
-      if (!Number.isNaN(parsedCategory)) {
-        productData.category_id = parsedCategory;
-      } else {
-        delete productData.category_id;
-      }
-    }
+    // `category_ids` vive na tabela de junção, não em products — sai do payload
+    // antes do insert e a primeira da lista vira a categoria principal.
+    const categoryIds: number[] = Array.isArray(productData.category_ids)
+      ? productData.category_ids.map(Number).filter(Number.isInteger)
+      : [];
+    delete productData.category_ids;
+    productData.category_id = categoryIds[0] ?? null;
 
     // Criar o produto primeiro
     const { data: product, error: productError } = await supabase
@@ -204,6 +216,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (productError) throw productError;
+
+    await replaceProductCategories(supabase, Number(product.id), categoryIds);
+    product.category_ids = categoryIds;
 
     // Registra no AbacatePay e salva o ID retornado (não-fatal)
     const abacatepayId = await syncProductToAbacatePay({

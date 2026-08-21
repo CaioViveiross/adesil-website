@@ -61,7 +61,12 @@ const BusinessCategories = () => {
                   transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
                   className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-muted"
                 >
-                  <Link href="/categoria/todos" className="absolute inset-0 z-10" aria-label={cat.name} />
+                  {/* Sem slug publicado, o card cai para o catálogo geral. */}
+                  <Link
+                    href={cat.slug ? `/categoria/${cat.slug}` : "/categoria/todos"}
+                    className="absolute inset-0 z-10"
+                    aria-label={`Ver produtos para ${cat.name}`}
+                  />
                   {/* Image */}
                   <img
                     src={cat.image}

@@ -75,13 +75,14 @@ Webhook validation: HMAC-SHA256 against `ABACATEPAY_WEBHOOK_SECRET` (tries base6
 
 ## Database (Supabase)
 
-Main tables: `products`, `categories`, `product_business_categories` (many-to-many), `orders`, `profiles` (extends `auth.users` with address/company/document), `contact_messages`, `clients`.
+Main tables: `products`, `categories`, `product_categories` (many-to-many product↔category), `orders`, `order_items`, `profiles` (extends `auth.users` with address/company/document), `contact_messages`, `coupons`, `payment_attempts`, `settings`.
 
 Key DB behaviors:
 - `handle_new_user` trigger auto-creates a `profiles` row on `auth.users` INSERT
 - `is_admin()` SQL function used in RLS policies — checks `profiles.role = 'admin'`
 - Orders RLS allows users to read/write only their own orders; admins bypass via `is_admin()`
 - `profiles.updated_at` auto-updates via trigger
+- `product_categories` holds a product's categories. `products.category_id` is a denormalized copy of the *first* one, used solely for the "Voltar ao catálogo" link on the product page — the product URL is `/produto/[id]` and does **not** include the category. The admin writes both; the ordering is not surfaced in the UI.
 
 Use `supabaseServer.ts` (server context) or `supabaseClient.ts` (browser) — never mix them in the wrong context. API routes always use the server client which has elevated privileges and bypasses RLS correctly.
 

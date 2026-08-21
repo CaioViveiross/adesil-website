@@ -5,7 +5,6 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +16,7 @@ import type { Product, Category } from "@/types/supabase";
 import { supabase } from "@/lib/supabaseClient";
 import { ImageCropModal } from "@/components/admin/ImageCropModal";
 import { ProductImagesField } from "@/components/admin/ProductImagesField";
+import { ProductCategoriesField } from "@/components/admin/ProductCategoriesField";
 import { MAX_PRODUCT_IMAGES, galleryImages } from "@/lib/productImages";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
@@ -56,7 +56,7 @@ export default function AdminProductsPage() {
     discount: "0",
     weight_grams: "",
     images: [] as string[],
-    category_id: "" as string | number,
+    category_ids: [] as number[],
     tags: "",
   });
   const [sectionsForm, setSectionsForm] = useState<DescriptionSectionsForm>(
@@ -175,7 +175,6 @@ export default function AdminProductsPage() {
       price: parseFloat(formData.price),
       discount: parseInt(formData.discount || "0", 10),
       weight_grams: formData.weight_grams.trim() ? parseInt(formData.weight_grams, 10) : null,
-      category_id: formData.category_id ? parseInt(formData.category_id.toString()) : undefined,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     };
 
@@ -230,7 +229,7 @@ export default function AdminProductsPage() {
       discount: (product.discount ?? 0).toString(),
       weight_grams: product.weight_grams != null ? product.weight_grams.toString() : "",
       images: galleryImages(product),
-      category_id: product.category_id?.toString() || "",
+      category_ids: product.category_ids ?? (product.category_id ? [product.category_id] : []),
       tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
     });
 
@@ -259,7 +258,7 @@ export default function AdminProductsPage() {
       discount: "0",
       weight_grams: "",
       images: [],
-      category_id: "",
+      category_ids: [],
       tags: "",
     });
     setSectionsForm(emptyDescriptionSectionsForm);
@@ -340,33 +339,25 @@ export default function AdminProductsPage() {
                 {/* Só esta região rola — cabeçalho, abas e rodapé ficam fixos */}
                 <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
 
-                  <TabsContent value="geral" className="mt-0 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="name">Nome *</Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="category">Categoria</Label>
-                        <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id.toString()}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <TabsContent value="geral" className="mt-0 space-y-5">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="name">Nome *</Label>
+                      <Input
+                        id="name"
+                        placeholder="ex: Etiqueta Térmica 10x15 cm — 10 rolos"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
                     </div>
+
+                    <ProductCategoriesField
+                      categories={categories}
+                      value={formData.category_ids}
+                      onChange={(category_ids) =>
+                        setFormData((prev) => ({ ...prev, category_ids }))
+                      }
+                    />
 
                     <ProductImagesField
                       images={formData.images}
@@ -375,14 +366,17 @@ export default function AdminProductsPage() {
                       uploading={uploading}
                     />
 
-                    <div>
-                      <Label htmlFor="tags">Tags <span className="text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tags">Tags</Label>
                       <Input
                         id="tags"
                         placeholder="ex: Novo produto, Em destaque"
                         value={formData.tags}
                         onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Separadas por vírgula. Aparecem como selo sobre a imagem do produto.
+                      </p>
                     </div>
                   </TabsContent>
 
@@ -397,9 +391,9 @@ export default function AdminProductsPage() {
                   />
                   </TabsContent>
 
-                  <TabsContent value="comercial" className="mt-0 space-y-4">
+                  <TabsContent value="comercial" className="mt-0 space-y-5">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-1.5">
                         <Label htmlFor="price">Preço (R$) *</Label>
                         <Input
                           id="price"
@@ -411,7 +405,7 @@ export default function AdminProductsPage() {
                           required
                         />
                       </div>
-                      <div>
+                      <div className="space-y-1.5">
                         <Label htmlFor="discount">Desconto (%)</Label>
                         <Input
                           id="discount"
@@ -440,7 +434,7 @@ export default function AdminProductsPage() {
                       </div>
                     )}
 
-                    <div>
+                    <div className="space-y-1.5">
                       <Label htmlFor="weight_grams">Peso (g) <span className="text-muted-foreground font-normal">(para cálculo de frete)</span></Label>
                       <Input
                         id="weight_grams"
@@ -451,7 +445,7 @@ export default function AdminProductsPage() {
                         value={formData.weight_grams}
                         onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
                       />
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground">
                         Se vazio, usa o peso padrão configurado nos Correios.
                       </p>
                     </div>
@@ -507,7 +501,13 @@ export default function AdminProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
-                    {categories.find(c => c.id === product.category_id)?.name || 'N/A'}
+                    {(() => {
+                      const ids = product.category_ids ?? (product.category_id ? [product.category_id] : []);
+                      const names = ids
+                        .map((id) => categories.find((c) => Number(c.id) === Number(id))?.name)
+                        .filter(Boolean);
+                      return names.length ? names.join(", ") : "N/A";
+                    })()}
                   </TableCell>
                   <TableCell>
                     {product.discount ? (
