@@ -9,7 +9,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
 
   const [{ data: products }, { data: categories }] = await Promise.all([
-    supabase.from("products").select("id, updated_at").order("created_at", { ascending: false }),
+    // Só produtos publicados: a página do produto filtra `is_active`, então
+    // sem isto o sitemap entregava ao Google URLs que respondem 404.
+    supabase
+      .from("products")
+      .select("id, updated_at")
+      .is("deleted_at", null)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
     supabase.from("categories").select("slug, updated_at"),
   ]);
 

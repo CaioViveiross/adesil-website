@@ -92,6 +92,10 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ABACATEPAY_API_KEY=
 ABACATEPAY_WEBHOOK_SECRET=   # optional; if unset, webhooks skip signature check
+ABACATEPAY_METHODS=          # optional; default "PIX". Comma-separated (e.g. "PIX,CARD").
+                             # Each method must be enabled on the AbacatePay account —
+                             # asking for a disabled one makes /checkouts/create return
+                             # 400 "X is not available for this store".
 NEXT_PUBLIC_APP_URL=         # used for AbacatePay return/completion URLs
 ```
 

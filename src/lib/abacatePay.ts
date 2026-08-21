@@ -1,6 +1,19 @@
 const ABACATEPAY_API_BASE_URL = "https://api.abacatepay.com/v2";
 const ABACATEPAY_API_KEY = process.env.ABACATEPAY_API_KEY;
 
+/**
+ * Meios de pagamento oferecidos no checkout hospedado.
+ *
+ * Precisam estar habilitados na conta AbacatePay: pedir um método não liberado
+ * faz a API responder 400 "X is not available for this store" e o checkout
+ * inteiro falha. Por isso o padrão é só PIX — para habilitar cartão, libere-o
+ * junto ao AbacatePay e defina ABACATEPAY_METHODS="PIX,CARD".
+ */
+const ABACATEPAY_METHODS = (process.env.ABACATEPAY_METHODS || "PIX")
+  .split(",")
+  .map((method) => method.trim().toUpperCase())
+  .filter(Boolean);
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 export interface OrderItem {
@@ -192,7 +205,7 @@ export async function createOrFindAbacatePayCustomer(
 // ─── Função principal ─────────────────────────────────────────────────────────
 
 /**
- * Cria produtos no AbacatePay e gera o checkout com PIX + Cartão.
+ * Cria produtos no AbacatePay e gera o checkout com os métodos de ABACATEPAY_METHODS.
  * Fluxo: customers/create → products/create (por item) → checkouts/create
  */
 export async function createAbacatePayCheckout(
@@ -242,17 +255,21 @@ export async function createAbacatePayCheckout(
 
   const checkoutBody: Record<string, unknown> = {
     items:         checkoutItems,
-    methods:       ["PIX", "CARD"],
+    methods:       ABACATEPAY_METHODS,
     customer:      sanitizeCustomer(options.customer),
     externalId:    String(options.orderId),
     returnUrl:     `${options.appBaseUrl}/meus-pedidos/${options.orderId}`,
     completionUrl: `${options.appBaseUrl}/meus-pedidos/${options.orderId}?payment=success`,
-    card:          { maxInstallments },
     metadata: {
       order_id: String(options.orderId),
       source:   options.source ?? "adesil-web-checkout",
     },
   };
+
+  // Parcelamento só faz sentido — e só é aceito — quando o cartão está ativo.
+  if (ABACATEPAY_METHODS.includes("CARD")) {
+    checkoutBody.card = { maxInstallments };
+  }
 
   if (customerId) checkoutBody.customerId = customerId;
 

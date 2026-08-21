@@ -66,7 +66,8 @@ export default function AdminProductsPage() {
 
   const fetchProducts = useCallback(async (search = "") => {
     try {
-      const params = new URLSearchParams({ limit: "100" });
+      // Admin enxerga também os inativos; a vitrine nunca recebe esse parâmetro.
+      const params = new URLSearchParams({ limit: "100", include_inactive: "true" });
       if (search.trim()) params.set("search", search.trim());
       const res = await fetch(`/api/products?${params}`, { cache: "no-store" });
       if (res.ok) setProducts(await res.json());

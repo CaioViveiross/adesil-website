@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
-import { ImagePlus, Loader2, Star, X } from "lucide-react";
+import { GripVertical, ImagePlus, Loader2, X } from "lucide-react";
 import { MAX_PRODUCT_IMAGES } from "@/lib/productImages";
 import { cn } from "@/lib/utils";
 
@@ -13,14 +14,36 @@ interface Props {
   uploading: boolean;
 }
 
+/** Move um item de posição preservando a ordem dos demais. */
+function reorder(images: string[], from: number, to: number): string[] {
+  const next = [...images];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 export function ProductImagesField({ images, onChange, onSelectFile, uploading }: Props) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
   const full = images.length >= MAX_PRODUCT_IMAGES;
 
-  /** Promove uma imagem a capa — ela passa a ser a primeira da galeria. */
-  const setCover = (index: number) =>
-    onChange([images[index], ...images.filter((_, i) => i !== index)]);
-
   const remove = (index: number) => onChange(images.filter((_, i) => i !== index));
+
+  const handleDrop = (to: number) => {
+    if (draggingIndex !== null && draggingIndex !== to) {
+      onChange(reorder(images, draggingIndex, to));
+    }
+    setDraggingIndex(null);
+    setOverIndex(null);
+  };
+
+  /** Reordenação por teclado — o drag do mouse sozinho deixaria a ação inacessível. */
+  const moveByKeyboard = (index: number, direction: -1 | 1) => {
+    const to = index + direction;
+    if (to < 0 || to >= images.length) return;
+    onChange(reorder(images, index, to));
+  };
 
   return (
     <div className="space-y-1.5">
@@ -35,32 +58,76 @@ export function ProductImagesField({ images, onChange, onSelectFile, uploading }
         {images.map((url, index) => (
           <div
             key={index}
-            className="group relative aspect-square rounded-xl overflow-hidden border border-border bg-muted"
+            draggable={!uploading}
+            onDragStart={() => setDraggingIndex(index)}
+            onDragEnd={() => {
+              setDraggingIndex(null);
+              setOverIndex(null);
+            }}
+            // preventDefault é obrigatório para o elemento aceitar o drop
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOverIndex(index);
+            }}
+            onDragLeave={() => setOverIndex((prev) => (prev === index ? null : prev))}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDrop(index);
+            }}
+            className={cn(
+              "group relative aspect-square rounded-xl overflow-hidden border bg-muted transition-all",
+              uploading ? "cursor-default" : "cursor-grab active:cursor-grabbing",
+              draggingIndex === index && "opacity-40",
+              overIndex === index && draggingIndex !== index
+                ? "border-primary ring-2 ring-primary/30"
+                : "border-border"
+            )}
           >
-            <img src={url} alt={`Imagem ${index + 1}`} className="w-full h-full object-cover" />
+            <img
+              src={url}
+              alt={`Imagem ${index + 1}`}
+              className="w-full h-full object-cover pointer-events-none"
+            />
 
-            {index === 0 ? (
+            {/* Alça de arraste + posição atual */}
+            <div className="absolute top-1 left-1 flex items-center gap-0.5 rounded-md bg-foreground/80 px-1 py-0.5 text-background">
+              <GripVertical className="h-3 w-3" />
+              <span className="text-[10px] font-bold tabular-nums">{index + 1}</span>
+            </div>
+
+            {index === 0 && (
               <span className="absolute bottom-1 left-1 rounded-md bg-foreground/80 text-background text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wide">
                 Capa
               </span>
-            ) : (
+            )}
+
+            <div className="absolute bottom-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
               <button
                 type="button"
-                onClick={() => setCover(index)}
-                title="Definir como capa"
-                aria-label={`Definir imagem ${index + 1} como capa`}
-                className="absolute bottom-1 left-1 rounded-md bg-foreground/80 text-background p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-foreground"
+                onClick={() => moveByKeyboard(index, -1)}
+                disabled={index === 0}
+                aria-label={`Mover imagem ${index + 1} para a esquerda`}
+                className="rounded bg-foreground/80 px-1 text-background text-[11px] leading-4 hover:bg-foreground disabled:opacity-30"
               >
-                <Star className="h-3 w-3" />
+                ←
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => moveByKeyboard(index, 1)}
+                disabled={index === images.length - 1}
+                aria-label={`Mover imagem ${index + 1} para a direita`}
+                className="rounded bg-foreground/80 px-1 text-background text-[11px] leading-4 hover:bg-foreground disabled:opacity-30"
+              >
+                →
+              </button>
+            </div>
 
             <button
               type="button"
               onClick={() => remove(index)}
               title="Remover imagem"
               aria-label={`Remover imagem ${index + 1}`}
-              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
             >
               <X className="h-3 w-3" />
             </button>
@@ -106,7 +173,7 @@ export function ProductImagesField({ images, onChange, onSelectFile, uploading }
       <p className="text-xs text-muted-foreground">
         {full
           ? `Limite de ${MAX_PRODUCT_IMAGES} imagens atingido. Remova uma para adicionar outra.`
-          : "A primeira imagem é a capa, usada nos cards, no carrinho e no compartilhamento."}
+          : "Arraste para reordenar. A primeira é a capa, usada nos cards, no carrinho e no compartilhamento."}
       </p>
     </div>
   );

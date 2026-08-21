@@ -13,7 +13,8 @@ export async function GET() {
 
     if (error) throw error;
     return NextResponse.json(data, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      // Mesmo motivo de /api/products: endpoint compartilhado com o admin.
+      headers: { "Cache-Control": "no-store, must-revalidate" },
     });
   } catch (error) {
     console.error("Error fetching categories:", error);
