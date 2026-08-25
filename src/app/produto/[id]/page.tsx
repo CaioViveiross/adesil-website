@@ -22,7 +22,7 @@ async function getProduct(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("products")
-    .select("*, categories(id, name, slug)")
+    .select("*, categories!products_category_fkey(id, name, slug)")
     .eq("id", id)
     .eq("is_active", true)
     .single();
