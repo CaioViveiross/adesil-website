@@ -83,6 +83,8 @@ export interface Product {
   description_sections?: ProductDescriptionSections;
   /** Peso unitário em gramas, usado no cálculo individual de frete. */
   weight_grams?: number;
+  /** Classificação fiscal (NCM). Quando vazio, a emissão de NF-e usa o "bling_ncm_padrao" das configurações. */
+  ncm?: string;
   is_active?: boolean;
   deleted_at?: string;
   created_at?: string;
@@ -126,6 +128,7 @@ export interface Order {
   shipping_street?: string;
   shipping_number?: string;
   shipping_complement?: string;
+  shipping_neighborhood?: string;
   shipping_city?: string;
   shipping_state?: string;
   shipping_country?: string;
@@ -133,6 +136,15 @@ export interface Order {
   tracking_code?: string;
   tracking_carrier?: string;
   internal_notes?: string;
+  /** ID da NF-e no Bling (rascunho ou emitida). */
+  bling_nfe_id?: number;
+  /** Situação da NF-e no Bling — ver `bling_nfe_situacao_labels` em lib/bling.ts. */
+  bling_nfe_situacao?: number;
+  bling_nfe_numero?: string;
+  bling_nfe_chave_acesso?: string;
+  bling_nfe_link_danfe?: string;
+  bling_nfe_error?: string;
+  bling_nfe_emitted_at?: string;
   status_history?: Array<{ status: OrderStatus; changed_at: string }>;
   /** @deprecated Use order_items table instead. Kept for backward-compat while UI migrates. */
   items_detail?: Array<{
@@ -158,12 +170,27 @@ export interface Profile {
   shipping_street?: string;
   shipping_number?: string;
   shipping_complement?: string;
+  shipping_neighborhood?: string;
   shipping_city?: string;
   shipping_state?: string;
   shipping_country?: string;
   created_at?: string;
   updated_at?: string;
 }
+
+export const blingNfeSituacaoLabels: Record<number, { label: string; color: string }> = {
+  1:  { label: "Pendente",              color: "bg-yellow-100 text-yellow-800" },
+  2:  { label: "Cancelada",             color: "bg-gray-100 text-gray-700"     },
+  3:  { label: "Aguardando recibo",     color: "bg-sky-100 text-primary"       },
+  4:  { label: "Rejeitada",             color: "bg-red-100 text-red-800"       },
+  5:  { label: "Autorizada",            color: "bg-green-100 text-green-800"   },
+  6:  { label: "Emitida DANFE",         color: "bg-green-100 text-green-800"   },
+  7:  { label: "Registrada",            color: "bg-sky-100 text-primary"       },
+  8:  { label: "Aguardando protocolo",  color: "bg-yellow-100 text-yellow-800" },
+  9:  { label: "Denegada",              color: "bg-red-100 text-red-800"       },
+  10: { label: "Consulta situação",     color: "bg-gray-100 text-gray-700"     },
+  11: { label: "Bloqueada",             color: "bg-red-100 text-red-800"       },
+};
 
 export const statusLabels: Record<OrderStatus, { label: string; color: string }> = {
   pending:    { label: "Pendente",     color: "bg-yellow-100 text-yellow-800"  },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 import { createOrder } from "@/lib/supabase/orders";
 import { getCurrentProfile, updateProfile } from "@/lib/supabase/auth";
-import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
+import { createMercadoPagoCheckout, getMercadoPagoConfig } from "@/lib/mercadoPago";
 import { calculateShipping, isCorreiosConfigured, getFallbackWeightGrams } from "@/lib/correios";
 import { getSettings } from "@/lib/supabase/settings";
 import type { Order } from "@/types/supabase";
@@ -40,7 +40,6 @@ interface ValidatedItem {
   quantity:                number;
   unit_price:              number;
   weight_grams:            number | null;
-  abacatepay_product_id?:  string | null;
 }
 
 /**
@@ -56,7 +55,7 @@ async function validateAndPriceItems(
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name, price, discount, is_active, deleted_at, weight_grams, abacatepay_product_id")
+    .select("id, name, price, discount, is_active, deleted_at, weight_grams")
     .in("id", ids);
 
   if (error) throw new Error("Falha ao buscar produtos: " + error.message);
@@ -83,7 +82,6 @@ async function validateAndPriceItems(
       quantity:               item.quantity,
       unit_price:             unitPrice,
       weight_grams:           product.weight_grams ?? null,
-      abacatepay_product_id:  product.abacatepay_product_id ?? null,
     };
   });
 }
@@ -150,6 +148,7 @@ export async function POST(request: NextRequest) {
       shipping_street,
       shipping_number,
       shipping_complement,
+      shipping_neighborhood,
       shipping_city,
       shipping_state,
       shipping_country,
@@ -218,6 +217,7 @@ export async function POST(request: NextRequest) {
       shipping_street,
       shipping_number,
       shipping_complement,
+      shipping_neighborhood,
       shipping_city,
       shipping_state,
       shipping_country,
@@ -236,6 +236,7 @@ export async function POST(request: NextRequest) {
       shipping_street,
       shipping_number,
       shipping_complement,
+      shipping_neighborhood,
       shipping_city,
       shipping_state,
       shipping_country:    shipping_country || "BR",
@@ -259,26 +260,25 @@ export async function POST(request: NextRequest) {
       throw new Error("Falha ao salvar itens do pedido: " + itemsInsertError.message);
     }
 
-    // AbacatePay integration
-    const { apiKey } = getAbacatePayConfig();
-    if (!apiKey) {
+    // Mercado Pago integration
+    const { accessToken } = getMercadoPagoConfig();
+    if (!accessToken) {
       return NextResponse.json(
-        { order, payment: { provider: "abacatepay", pending_configuration: true } },
+        { order, payment: { provider: "mercadopago", pending_configuration: true } },
         { status: 201 }
       );
     }
 
-    // Map validated items to AbacatePay format (uses server prices)
+    // Map validated items to Mercado Pago format (uses server prices)
     const checkoutItems = validatedItems.map((i) => ({
-      product_id:             i.product_id,
-      name:                   i.product_name_snapshot,
-      quantity:               i.quantity,
-      price:                  i.unit_price,
-      abacatepay_product_id:  i.abacatepay_product_id ?? undefined,
+      product_id: i.product_id,
+      name:       i.product_name_snapshot,
+      quantity:   i.quantity,
+      price:      i.unit_price,
     }));
 
     try {
-      const checkout = await createAbacatePayCheckout({
+      const checkout = await createMercadoPagoCheckout({
         orderId: String(order.id),
         items:   checkoutItems,
         customer: {
@@ -293,20 +293,11 @@ export async function POST(request: NextRequest) {
         discountAmount: discountAmt    > 0 ? discountAmt    : undefined,
       });
 
-      // Salva IDs recém-registrados no AbacatePay de volta ao banco (evita re-registro no próximo checkout)
-      if (Object.keys(checkout.newProductIds).length > 0) {
-        await Promise.allSettled(
-          Object.entries(checkout.newProductIds).map(([productId, abacatePayId]) =>
-            supabase.from("products").update({ abacatepay_product_id: abacatePayId }).eq("id", productId)
-          )
-        );
-      }
-
       return NextResponse.json(
         {
           order,
           payment: {
-            provider:     "abacatepay",
+            provider:     "mercadopago",
             checkout_id:  checkout.id,
             checkout_url: checkout.url,
             status:       checkout.status,
@@ -315,12 +306,12 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
     } catch (paymentError) {
-      console.error("AbacatePay checkout error:", paymentError);
+      console.error("Mercado Pago checkout error:", paymentError);
       return NextResponse.json(
         {
           order,
           payment: {
-            provider: "abacatepay",
+            provider: "mercadopago",
             error:    paymentError instanceof Error ? paymentError.message : "Falha ao gerar pagamento",
           },
         },

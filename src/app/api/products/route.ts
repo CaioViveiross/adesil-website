@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
-import { syncProductToAbacatePay } from "@/lib/abacatePay";
 import {
   attachCategoryIds,
   productIdsInCategory,
@@ -219,21 +218,6 @@ export async function POST(request: NextRequest) {
 
     await replaceProductCategories(supabase, Number(product.id), categoryIds);
     product.category_ids = categoryIds;
-
-    // Registra no AbacatePay e salva o ID retornado (não-fatal)
-    const abacatepayId = await syncProductToAbacatePay({
-      id:       String(product.id),
-      name:     product.name,
-      price:    product.price,
-      discount: product.discount ?? undefined,
-    });
-    if (abacatepayId) {
-      await supabase
-        .from("products")
-        .update({ abacatepay_product_id: abacatepayId })
-        .eq("id", product.id);
-      product.abacatepay_product_id = abacatepayId;
-    }
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {

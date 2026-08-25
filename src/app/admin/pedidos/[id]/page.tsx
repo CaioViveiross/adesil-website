@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Truck, Check, Package, ChevronRight, Clock, PackageCheck, MessageSquare, History, Printer } from "lucide-react";
+import { ArrowLeft, Loader2, Truck, Check, Package, ChevronRight, Clock, PackageCheck, MessageSquare, History, Printer, Receipt, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
-import { statusLabels } from "@/types/supabase";
+import { statusLabels, blingNfeSituacaoLabels } from "@/types/supabase";
 import { parseOrderDate } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Order, OrderItem, OrderStatus } from "@/types/supabase";
@@ -52,7 +52,7 @@ function getWorkflowStep(status: OrderStatus): WorkflowStep | null {
       return {
         icon: <Clock className="h-5 w-5" />,
         title: "Aguardando pagamento",
-        description: "O pedido foi criado mas o pagamento ainda não foi confirmado. O status mudará automaticamente para 'Processando' quando o AbacatePay confirmar o pagamento.",
+        description: "O pedido foi criado mas o pagamento ainda não foi confirmado. O status mudará automaticamente para 'Processando' quando o Mercado Pago confirmar o pagamento.",
         action: { label: "Forçar como Processando", nextStatus: "processing", variant: "outline" },
         colorClass: "bg-yellow-50 border-yellow-200 text-yellow-900",
       };
@@ -87,6 +87,7 @@ export default function AdminOrderDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [internalNotes, setInternalNotes] = useState("");
+  const [emittingNfe, setEmittingNfe] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -153,6 +154,44 @@ export default function AdminOrderDetailPage() {
       toast.error("Erro ao salvar nota");
     } finally {
       setSavingNotes(false);
+    }
+  };
+
+  const handleEmitNfe = async () => {
+    if (!order) return;
+    setEmittingNfe(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/emit-nfe`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setOrder(data);
+        toast.success("NF-e emitida");
+      } else {
+        toast.error(data?.error || "Erro ao emitir NF-e");
+      }
+    } catch {
+      toast.error("Erro ao emitir NF-e");
+    } finally {
+      setEmittingNfe(false);
+    }
+  };
+
+  const handleRefreshNfeStatus = async () => {
+    if (!order) return;
+    setEmittingNfe(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/emit-nfe`);
+      const data = await res.json();
+      if (res.ok) {
+        setOrder(data);
+        toast.success("Status atualizado");
+      } else {
+        toast.error(data?.error || "Erro ao atualizar status");
+      }
+    } catch {
+      toast.error("Erro ao atualizar status");
+    } finally {
+      setEmittingNfe(false);
     }
   };
 
@@ -337,6 +376,56 @@ export default function AdminOrderDetailPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Nota Fiscal Eletrônica (Bling) */}
+        <div className="rounded-3xl border bg-card p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Nota Fiscal Eletrônica</h2>
+            </div>
+            {order.bling_nfe_situacao != null && (
+              <Badge className={blingNfeSituacaoLabels[order.bling_nfe_situacao]?.color}>
+                {blingNfeSituacaoLabels[order.bling_nfe_situacao]?.label ?? `Situação ${order.bling_nfe_situacao}`}
+              </Badge>
+            )}
+          </div>
+
+          {order.bling_nfe_error && (
+            <p className="text-sm text-destructive mb-4">{order.bling_nfe_error}</p>
+          )}
+
+          {order.bling_nfe_numero && (
+            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm mb-4">
+              <span className="text-muted-foreground">Número</span>
+              <span className="font-mono">{order.bling_nfe_numero}</span>
+              {order.bling_nfe_chave_acesso && (
+                <>
+                  <span className="text-muted-foreground">Chave de acesso</span>
+                  <span className="font-mono text-xs break-all">{order.bling_nfe_chave_acesso}</span>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {order.bling_nfe_link_danfe && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={order.bling_nfe_link_danfe} target="_blank" rel="noopener noreferrer">Ver DANFE</a>
+              </Button>
+            )}
+            <Button size="sm" onClick={handleEmitNfe} disabled={emittingNfe} className="gap-1.5">
+              {emittingNfe ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
+              {order.bling_nfe_id ? "Reemitir NF-e" : "Emitir NF-e"}
+            </Button>
+            {order.bling_nfe_id && (
+              <Button variant="outline" size="sm" onClick={handleRefreshNfeStatus} disabled={emittingNfe} className="gap-1.5">
+                <RefreshCw className="h-4 w-4" />
+                Atualizar status
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Notas internas + Histórico lado a lado */}

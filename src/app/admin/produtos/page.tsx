@@ -55,6 +55,7 @@ export default function AdminProductsPage() {
     price: "",
     discount: "0",
     weight_grams: "",
+    ncm: "",
     images: [] as string[],
     category_ids: [] as number[],
     tags: "",
@@ -175,6 +176,7 @@ export default function AdminProductsPage() {
       price: parseFloat(formData.price),
       discount: parseInt(formData.discount || "0", 10),
       weight_grams: formData.weight_grams.trim() ? parseInt(formData.weight_grams, 10) : null,
+      ncm: formData.ncm.trim() || null,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     };
 
@@ -228,6 +230,7 @@ export default function AdminProductsPage() {
       price: product.price.toString(),
       discount: (product.discount ?? 0).toString(),
       weight_grams: product.weight_grams != null ? product.weight_grams.toString() : "",
+      ncm: product.ncm ?? "",
       images: galleryImages(product),
       category_ids: product.category_ids ?? (product.category_id ? [product.category_id] : []),
       tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
@@ -257,6 +260,7 @@ export default function AdminProductsPage() {
       price: "",
       discount: "0",
       weight_grams: "",
+      ncm: "",
       images: [],
       category_ids: [],
       tags: "",
@@ -447,6 +451,19 @@ export default function AdminProductsPage() {
                       />
                       <p className="text-xs text-muted-foreground">
                         Se vazio, usa o peso padrão configurado nos Correios.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ncm">NCM <span className="text-muted-foreground font-normal">(classificação fiscal)</span></Label>
+                      <Input
+                        id="ncm"
+                        placeholder="Ex: 4821.10.00"
+                        value={formData.ncm}
+                        onChange={(e) => setFormData({ ...formData, ncm: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Se vazio, usa o NCM padrão configurado em Configurações → Bling.
                       </p>
                     </div>
                   </TabsContent>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect, useRef, Suspense } from "react";
-import { Package, CreditCard, QrCode, ExternalLink, AlertCircle, Truck, CheckCircle2, Loader2 } from "lucide-react";
+import { Package, CreditCard, QrCode, Barcode, ExternalLink, AlertCircle, Truck, CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ interface CheckoutForm {
   shipping_street: string;
   shipping_number: string;
   shipping_complement: string;
+  shipping_neighborhood: string;
   shipping_city: string;
   shipping_state: string;
 }
@@ -32,7 +33,7 @@ interface CheckoutForm {
 const initialFormState: CheckoutForm = {
   customer_name: "", email: "", phone: "", document: "", company_name: "",
   shipping_zipcode: "", shipping_street: "", shipping_number: "",
-  shipping_complement: "", shipping_city: "", shipping_state: "",
+  shipping_complement: "", shipping_neighborhood: "", shipping_city: "", shipping_state: "",
 };
 
 const isCnpj = (value: string) => value.replace(/\D/g, "").length === 14;
@@ -106,6 +107,7 @@ function CheckoutContent() {
       shipping_street: user.shipping_street || prev.shipping_street,
       shipping_number: user.shipping_number || prev.shipping_number,
       shipping_complement: user.shipping_complement || prev.shipping_complement,
+      shipping_neighborhood: user.shipping_neighborhood || prev.shipping_neighborhood,
       shipping_city: user.shipping_city || prev.shipping_city,
       shipping_state: user.shipping_state || prev.shipping_state,
     }));
@@ -125,6 +127,7 @@ function CheckoutContent() {
           ...prev,
           shipping_zipcode: result.cep,
           shipping_street: result.logradouro || prev.shipping_street,
+          shipping_neighborhood: result.bairro || prev.shipping_neighborhood,
           shipping_city: result.localidade || prev.shipping_city,
           shipping_state: result.uf || prev.shipping_state,
         }));
@@ -211,6 +214,7 @@ function CheckoutContent() {
           shipping_street: formData.shipping_street,
           shipping_number: formData.shipping_number,
           shipping_complement: formData.shipping_complement,
+          shipping_neighborhood: formData.shipping_neighborhood,
           shipping_city: formData.shipping_city,
           shipping_state: formData.shipping_state,
           shipping_country: "BR",
@@ -308,7 +312,7 @@ function CheckoutContent() {
           </div>
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight">Redirecionando para o pagamento…</h1>
-            <p className="text-muted-foreground text-sm">Você será levado à página segura do AbacatePay para concluir o pagamento via Pix ou Cartão.</p>
+            <p className="text-muted-foreground text-sm">Você será levado à página segura do Mercado Pago para concluir o pagamento via Pix, cartão ou boleto.</p>
           </div>
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
@@ -403,6 +407,10 @@ function CheckoutContent() {
                     <Input className={fieldClass} placeholder="Apto, bloco..." value={formData.shipping_complement} onChange={(e) => handleChange("shipping_complement", e.target.value)} />
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Bairro</Label>
+                  <Input className={fieldClass} placeholder="Bairro" required value={formData.shipping_neighborhood} onChange={(e) => handleChange("shipping_neighborhood", e.target.value)} />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-sm">Cidade</Label>
@@ -456,17 +464,22 @@ function CheckoutContent() {
             {/* Pagamento */}
             <div className="bg-card border border-border rounded-2xl p-6 space-y-3">
               <h2 className="font-semibold text-base">Pagamento</h2>
-              <p className="text-sm text-muted-foreground">Você escolherá o método na próxima etapa, na página segura do AbacatePay.</p>
-              <div className="flex gap-3">
-                <div className="flex-1 flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3">
+              <p className="text-sm text-muted-foreground">Você escolherá o método na próxima etapa, na página segura do Mercado Pago.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-3">
                   <QrCode className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm font-medium">Pix</span>
-                  <span className="ml-auto text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Instantâneo</span>
+                  <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Instantâneo</span>
                 </div>
-                <div className="flex-1 flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                <div className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-3">
                   <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="text-sm font-medium">Cartão</span>
-                  <span className="ml-auto text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">até 12×</span>
+                  <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full">até 12×</span>
+                </div>
+                <div className="flex flex-col items-start gap-1.5 rounded-xl border border-border bg-muted/40 px-3 py-3">
+                  <Barcode className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">Boleto</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold bg-background px-2 py-0.5 rounded-full">1-3 dias</span>
                 </div>
               </div>
             </div>
@@ -550,7 +563,7 @@ function CheckoutContent() {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground text-center pt-1">
-              Pagamento processado com segurança pelo AbacatePay
+              Pagamento processado com segurança pelo Mercado Pago
             </p>
           </div>
         </div>

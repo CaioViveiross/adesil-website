@@ -10,6 +10,9 @@ const ALLOWED_KEYS = new Set([
   "banner_text",
   "banner_active",
   "banner_color",
+  "bling_natureza_operacao_id",
+  "bling_forma_pagamento_id",
+  "bling_ncm_padrao",
 ]);
 
 async function requireAdmin() {

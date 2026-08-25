@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
-import { syncProductToAbacatePay } from "@/lib/abacatePay";
 import { replaceProductCategories } from "@/lib/productCategories";
 
 async function getFeaturedProductsCount(supabase: Awaited<ReturnType<typeof createClient>>, excludingProductId?: string) {
@@ -113,24 +112,6 @@ export async function PUT(
       product.category_ids = categoryIds;
     }
 
-    // Se preço ou desconto mudou, re-registra no AbacatePay com o novo valor (não-fatal)
-    const priceChanged = body.price !== undefined || body.discount !== undefined;
-    if (priceChanged) {
-      const abacatepayId = await syncProductToAbacatePay({
-        id:       String(product.id),
-        name:     product.name,
-        price:    product.price,
-        discount: product.discount ?? undefined,
-      });
-      if (abacatepayId) {
-        await supabase
-          .from("products")
-          .update({ abacatepay_product_id: abacatepayId })
-          .eq("id", id);
-        product.abacatepay_product_id = abacatepayId;
-      }
-    }
-
     return NextResponse.json(product);
   } catch (error) {
     console.error("Error updating product:", error);
@@ -172,7 +153,7 @@ export async function DELETE(
       );
     }
 
-    // Soft delete: preserves order history and abacatepay_product_id
+    // Soft delete: preserves order history
     const { error } = await supabase
       .from("products")
       .update({ deleted_at: new Date().toISOString(), is_active: false })

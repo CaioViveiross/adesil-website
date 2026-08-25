@@ -13,7 +13,6 @@ interface CorreiosConfig {
   accessCode: string; // "Código de Acesso da API" — NOT the Meu Correios account password
   postalCard: string;
   originZip:  string;
-  pacCode:    string;
   sedexCode:  string;
   weightGrams: number;
 }
@@ -29,7 +28,6 @@ async function getCorreiosConfig(): Promise<CorreiosConfig> {
     postalCard: process.env.CORREIOS_POSTAL_CARD ?? "",
     // Operational config: DB value takes priority, env var as fallback
     originZip:   s("correios_origin_zip")  ?? process.env.CORREIOS_ORIGIN_ZIP ?? "",
-    pacCode:     process.env.CORREIOS_PAC_CODE   ?? "03298",
     sedexCode:   process.env.CORREIOS_SEDEX_CODE ?? "03220",
     weightGrams: parseInt(s("correios_weight_grams") ?? process.env.CORREIOS_WEIGHT_GRAMS ?? "300", 10),
   };
@@ -102,7 +100,6 @@ export async function calculateShipping(
   const packageWeight = weightGrams && weightGrams > 0 ? Math.round(weightGrams) : config.weightGrams;
 
   const services = [
-    { code: config.pacCode,   name: "PAC"   },
     { code: config.sedexCode, name: "SEDEX" },
   ];
 

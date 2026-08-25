@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrderById } from "@/lib/supabase/orders";
 import { getCurrentProfile } from "@/lib/supabase/auth";
-import { createAbacatePayCheckout, getAbacatePayConfig } from "@/lib/abacatePay";
+import { createMercadoPagoCheckout, getMercadoPagoConfig } from "@/lib/mercadoPago";
 import { createClient } from "@/lib/supabaseServer";
 
 export async function POST(
@@ -34,12 +34,11 @@ export async function POST(
       );
     }
 
-    const { apiKey } = getAbacatePayConfig();
-    if (!apiKey) {
+    const { accessToken } = getMercadoPagoConfig();
+    if (!accessToken) {
       return NextResponse.json({ error: "Gateway de pagamento não configurado" }, { status: 503 });
     }
 
-    // Read items from order_items + fetch abacatepay_product_id from products
     const supabase = await createClient();
     const { data: orderItems, error: itemsError } = await supabase
       .from("order_items")
@@ -48,37 +47,26 @@ export async function POST(
 
     if (itemsError) throw itemsError;
 
-    // Fetch stored AbacatePay product IDs to avoid re-registering
-    const productIds = (orderItems ?? [])
-      .map((r) => r.product_id)
-      .filter(Boolean) as number[];
-
-    const abacatepayIdMap = new Map<string, string>();
-    if (productIds.length > 0) {
-      const { data: products } = await supabase
-        .from("products")
-        .select("id, abacatepay_product_id")
-        .in("id", productIds);
-      (products ?? []).forEach((p) => {
-        if (p.abacatepay_product_id) {
-          abacatepayIdMap.set(String(p.id), p.abacatepay_product_id);
-        }
-      });
-    }
-
     const safeItems = (orderItems ?? []).map((row) => ({
-      product_id:            String(row.product_id ?? ""),
-      name:                  row.product_name_snapshot,
-      quantity:              row.quantity,
-      price:                 Number(row.unit_price),
-      abacatepay_product_id: abacatepayIdMap.get(String(row.product_id)) ?? undefined,
+      product_id: String(row.product_id ?? ""),
+      name:       row.product_name_snapshot,
+      quantity:   row.quantity,
+      price:      Number(row.unit_price),
     }));
 
     if (safeItems.length === 0) {
       return NextResponse.json({ error: "Pedido sem itens para cobrança" }, { status: 400 });
     }
 
-    const checkout = await createAbacatePayCheckout({
+    const shippingCost = order.shipping_cost && order.shipping_cost > 0 ? order.shipping_cost : 0;
+
+    // O total do pedido já reflete o desconto de cupom aplicado na criação —
+    // deriva o desconto comparando com a soma bruta dos itens + frete, pra
+    // que o retry cobre o mesmo valor do pedido original.
+    const rawSubtotal = safeItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const discountAmount = Math.max(0, Math.round((rawSubtotal + shippingCost - order.total) * 100) / 100);
+
+    const checkout = await createMercadoPagoCheckout({
       orderId: String(order.id),
       items: safeItems,
       customer: {
@@ -88,18 +76,10 @@ export async function POST(
         cellphone: profile.phone,
       },
       appBaseUrl,
-      source:       "adesil-web-retry",
-      shippingCost: order.shipping_cost && order.shipping_cost > 0 ? order.shipping_cost : undefined,
+      source:         "adesil-web-retry",
+      shippingCost:   shippingCost   > 0 ? shippingCost   : undefined,
+      discountAmount: discountAmount > 0 ? discountAmount : undefined,
     });
-
-    // Salva IDs recém-registrados de volta ao banco
-    if (Object.keys(checkout.newProductIds).length > 0) {
-      await Promise.allSettled(
-        Object.entries(checkout.newProductIds).map(([productId, abacatePayId]) =>
-          supabase.from("products").update({ abacatepay_product_id: abacatePayId }).eq("id", productId)
-        )
-      );
-    }
 
     return NextResponse.json({ checkout_url: checkout.url });
   } catch (error) {

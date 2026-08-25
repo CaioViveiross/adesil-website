@@ -1,19 +1,26 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Truck, Megaphone, Gift,
-  Check, Loader2,
+  Truck, Megaphone, Gift, Receipt,
+  Check, Loader2, Link2, Unlink,
 } from "lucide-react";
 import { AdminPageLoader } from "@/components/admin/AdminLoader";
 import { toast } from "sonner";
 import type { Setting } from "@/lib/supabase/settings";
+
+interface BlingOption {
+  id: number;
+  descricao: string;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -181,12 +188,144 @@ function SectionCard({
   );
 }
 
+function BlingSection({
+  values,
+  saving,
+  onChange,
+  onSave,
+}: {
+  values: Record<string, string>;
+  saving: Record<string, boolean>;
+  onChange: (key: string, v: string) => void;
+  onSave: (key: string, overrideValue?: string) => void;
+}) {
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [naturezas, setNaturezas] = useState<BlingOption[]>([]);
+  const [formasPagamento, setFormasPagamento] = useState<BlingOption[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const fetchOptions = useCallback(async () => {
+    setLoadingOptions(true);
+    try {
+      const res = await fetch("/api/admin/bling/options");
+      if (res.ok) {
+        const data = await res.json();
+        setConnected(!!data.connected);
+        setNaturezas(data.naturezasOperacoes ?? []);
+        setFormasPagamento(data.formasPagamento ?? []);
+      }
+    } finally {
+      setLoadingOptions(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchOptions(); }, [fetchOptions]);
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/admin/bling/disconnect", { method: "POST" });
+      if (res.ok) {
+        toast.success("Bling desconectado");
+        await fetchOptions();
+      } else {
+        toast.error("Erro ao desconectar");
+      }
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      icon={Receipt}
+      title="Bling — Nota Fiscal Eletrônica"
+      description="Emite a NF-e automaticamente quando o pagamento de um pedido é confirmado."
+    >
+      <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">Conexão com o Bling</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {loadingOptions ? "Verificando..." : connected ? "Conectado" : "Desconectado"}
+          </p>
+        </div>
+        {loadingOptions ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : connected ? (
+          <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={handleDisconnect} disabled={disconnecting}>
+            {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
+            Desconectar
+          </Button>
+        ) : (
+          <Button type="button" size="sm" className="gap-1.5" asChild>
+            <a href="/api/admin/bling/connect">
+              <Link2 className="h-3.5 w-3.5" />
+              Conectar ao Bling
+            </a>
+          </Button>
+        )}
+      </div>
+
+      {connected && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Natureza de Operação</Label>
+              <Select
+                value={values["bling_natureza_operacao_id"] ?? ""}
+                onValueChange={(v) => { onChange("bling_natureza_operacao_id", v); onSave("bling_natureza_operacao_id", v); }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {naturezas.map((n) => (
+                    <SelectItem key={n.id} value={String(n.id)}>{n.descricao}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Forma de Pagamento</Label>
+              <Select
+                value={values["bling_forma_pagamento_id"] ?? ""}
+                onValueChange={(v) => { onChange("bling_forma_pagamento_id", v); onSave("bling_forma_pagamento_id", v); }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {formasPagamento.map((f) => (
+                    <SelectItem key={f.id} value={String(f.id)}>{f.descricao}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <SettingField
+            def={{
+              key: "bling_ncm_padrao",
+              label: "NCM padrão",
+              placeholder: "Ex: 4821.10.00",
+              hint: "Aplicado a produtos sem NCM próprio cadastrado. Confirme com seu contador antes de emitir notas reais.",
+            }}
+            value={values["bling_ncm_padrao"] ?? ""}
+            saving={!!saving["bling_ncm_padrao"]}
+            onChange={(v) => onChange("bling_ncm_padrao", v)}
+            onSave={() => onSave("bling_ncm_padrao")}
+          />
+        </>
+      )}
+    </SectionCard>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function AdminSettingsPage() {
+function AdminSettingsPage() {
   const [values, setValues]   = useState<Record<string, string>>({});
   const [saving, setSaving]   = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/admin/settings");
@@ -199,6 +338,20 @@ export default function AdminSettingsPage() {
   }, []);
 
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  // Feedback do redirect de OAuth do Bling (/api/admin/bling/callback)
+  useEffect(() => {
+    const blingResult = searchParams.get("bling");
+    if (!blingResult) return;
+    const message = searchParams.get("bling_message");
+    if (blingResult === "connected") {
+      toast.success("Bling conectado com sucesso");
+    } else if (blingResult === "error") {
+      toast.error(message || "Falha ao conectar ao Bling");
+    }
+    router.replace("/admin/configuracoes");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const save = async (key: string, overrideValue?: string) => {
     const val = overrideValue ?? values[key] ?? "";
@@ -251,7 +404,7 @@ export default function AdminSettingsPage() {
         <SectionCard
           icon={Truck}
           title="Correios — Cálculo de Frete"
-          description="Parâmetros usados no cálculo dinâmico de PAC e SEDEX."
+          description="Parâmetros usados no cálculo dinâmico de SEDEX."
         >
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -318,7 +471,18 @@ export default function AdminSettingsPage() {
           </div>
         </SectionCard>
 
+        {/* ── Bling — Nota Fiscal ──────────────────────────────────── */}
+        <BlingSection values={values} saving={saving} onChange={set} onSave={save} />
+
       </div>
     </AdminLayout>
+  );
+}
+
+export default function AdminSettingsPageWrapper() {
+  return (
+    <Suspense>
+      <AdminSettingsPage />
+    </Suspense>
   );
 }
