@@ -3,6 +3,8 @@ import { getOrderById } from "@/lib/supabase/orders";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 import { createMercadoPagoCheckout, getMercadoPagoConfig } from "@/lib/mercadoPago";
 import { createClient } from "@/lib/supabaseServer";
+import { createAdminClient } from "@/lib/supabaseAdmin";
+import type { Order } from "@/types/supabase";
 
 export async function POST(
   request: NextRequest,
@@ -27,9 +29,14 @@ export async function POST(
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
-    if (order.status !== "pending") {
+    // `failed` e `cancelled` entram aqui de propósito: o pedido pode ter sido
+    // marcado assim antes (ou por um chargeback) e recusar o retry deixava o
+    // cliente sem nenhuma saída — inclusive com o botão "Tentar novamente" da
+    // tela do pedido devolvendo erro garantido.
+    const RETRYABLE: Order["status"][] = ["pending", "failed", "cancelled"];
+    if (!RETRYABLE.includes(order.status)) {
       return NextResponse.json(
-        { error: "Só é possível retentar o pagamento de pedidos pendentes" },
+        { error: "Este pedido não está aguardando pagamento" },
         { status: 400 }
       );
     }
@@ -80,6 +87,19 @@ export async function POST(
       shippingCost:   shippingCost   > 0 ? shippingCost   : undefined,
       discountAmount: discountAmount > 0 ? discountAmount : undefined,
     });
+
+    // Volta o pedido para `pending` ao gerar uma nova cobrança: sem isso um
+    // pedido que estava `failed`/`cancelled` continuaria em status terminal e
+    // o webhook recusaria a aprovação que está por vir (status_regression).
+    // Client admin de propósito: a policy `orders_update` só permite admin, e
+    // a posse do pedido já foi conferida lá em cima.
+    if (order.status !== "pending") {
+      const { error: resetError } = await createAdminClient()
+        .from("orders")
+        .update({ status: "pending" })
+        .eq("id", order.id);
+      if (resetError) throw resetError;
+    }
 
     return NextResponse.json({ checkout_url: checkout.url });
   } catch (error) {

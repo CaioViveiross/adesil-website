@@ -78,7 +78,8 @@ export interface Product {
   category_ids?: number[];
   is_featured?: boolean;
   tags?: string[];
-  stock_quantity?: number;
+  /** Estoque disponível. `null` = produto sem controle de estoque (venda livre). */
+  stock_quantity?: number | null;
   /** Descrição estruturada (padrão da loja). `description` segue como apresentação breve. */
   description_sections?: ProductDescriptionSections;
   /** Peso unitário em gramas, usado no cálculo individual de frete. */
@@ -133,6 +134,10 @@ export interface Order {
   shipping_state?: string;
   shipping_country?: string;
   shipping_cost?: number;
+  /** Cupom aplicado no checkout. O uso só é creditado quando o pagamento aprova. */
+  coupon_code?: string | null;
+  /** Desconto do cupom em R$, já embutido em `total`. */
+  discount_amount?: number;
   tracking_code?: string;
   tracking_carrier?: string;
   internal_notes?: string;

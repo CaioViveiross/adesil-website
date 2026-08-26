@@ -10,19 +10,23 @@ import type { Order } from "@/types/supabase";
 async function fetchCoupon(
   supabase: Awaited<ReturnType<typeof createClient>>,
   code: string
-): Promise<{ type: "percent" | "fixed"; value: number } | null> {
+): Promise<{ code: string; type: "percent" | "fixed"; value: number } | null> {
   if (!code) return null;
+  const normalized = code.toUpperCase();
   const { data } = await supabase
     .from("coupons")
-    .select("type, value, is_active, max_uses, uses_count, expires_at")
-    .eq("code", code.toUpperCase())
+    .select("code, type, value, is_active, max_uses, uses_count, expires_at")
+    .eq("code", normalized)
     .single();
 
   if (!data || !data.is_active) return null;
   if (data.max_uses !== null && data.uses_count >= data.max_uses) return null;
   if (data.expires_at && new Date(data.expires_at) < new Date()) return null;
 
-  return { type: data.type as "percent" | "fixed", value: Number(data.value) };
+  // O código volta junto para ser gravado no pedido: `uses_count` só é
+  // incrementado quando o pagamento aprova (no webhook), e sem essa
+  // referência não haveria como saber qual cupom creditar.
+  return { code: data.code, type: data.type as "percent" | "fixed", value: Number(data.value) };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,7 +49,11 @@ interface ValidatedItem {
 /**
  * Fetches current prices from the DB and validates the client-submitted items.
  * Returns validated items with server-authoritative unit prices.
- * Throws if any product is not found, inactive, or out of stock.
+ * Throws if any product is not found, inactive, or without enough stock.
+ *
+ * Estoque é opcional por produto: `stock_quantity` nulo significa "não
+ * controla estoque" e passa direto. Só quem tem um número cadastrado é
+ * conferido — do contrário todo produto (todos nulos hoje) bloquearia a venda.
  */
 async function validateAndPriceItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -55,7 +63,7 @@ async function validateAndPriceItems(
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name, price, discount, is_active, deleted_at, weight_grams")
+    .select("id, name, price, discount, is_active, deleted_at, weight_grams, stock_quantity")
     .in("id", ids);
 
   if (error) throw new Error("Falha ao buscar produtos: " + error.message);
@@ -64,11 +72,32 @@ async function validateAndPriceItems(
     (products ?? []).map((p) => [String(p.id), p])
   );
 
+  // O mesmo produto pode aparecer em mais de uma linha do carrinho (mesma
+  // etiqueta com personalizações diferentes), então o estoque é conferido
+  // contra a soma das linhas, não linha a linha.
+  const quantityByProduct = new Map<string, number>();
+  for (const item of rawItems) {
+    const key = String(item.product_id);
+    quantityByProduct.set(key, (quantityByProduct.get(key) ?? 0) + item.quantity);
+  }
+
   return rawItems.map((item) => {
     const product = productMap.get(String(item.product_id));
 
     if (!product || !product.is_active || product.deleted_at) {
       throw new Error(`Produto "${item.name}" indisponível.`);
+    }
+
+    const stock = product.stock_quantity;
+    if (stock !== null && stock !== undefined) {
+      const requested = quantityByProduct.get(String(item.product_id)) ?? item.quantity;
+      if (stock < requested) {
+        throw new Error(
+          stock === 0
+            ? `Produto "${product.name}" está sem estoque.`
+            : `Produto "${product.name}" tem apenas ${stock} unidade(s) em estoque.`
+        );
+      }
     }
 
     // Server-side price: apply discount if present
@@ -243,6 +272,10 @@ export async function POST(request: NextRequest) {
       items:               itemCount,
       total:               finalTotal,
       shipping_cost:       shippingCost,
+      // Cupom fica registrado no pedido: o uso só é creditado quando o
+      // pagamento aprova, e é o webhook que precisa saber qual código somar.
+      coupon_code:         couponData?.code ?? null,
+      discount_amount:     discountAmt,
       status:              "pending",
     } as Omit<Order, "id" | "created_at" | "updated_at">);
 

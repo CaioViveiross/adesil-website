@@ -56,6 +56,7 @@ export default function AdminProductsPage() {
     discount: "0",
     weight_grams: "",
     ncm: "",
+    stock_quantity: "",
     images: [] as string[],
     category_ids: [] as number[],
     tags: "",
@@ -177,6 +178,8 @@ export default function AdminProductsPage() {
       discount: parseInt(formData.discount || "0", 10),
       weight_grams: formData.weight_grams.trim() ? parseInt(formData.weight_grams, 10) : null,
       ncm: formData.ncm.trim() || null,
+      // Vazio = null = produto sem controle de estoque.
+      stock_quantity: formData.stock_quantity.trim() ? parseInt(formData.stock_quantity, 10) : null,
       tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     };
 
@@ -231,6 +234,7 @@ export default function AdminProductsPage() {
       discount: (product.discount ?? 0).toString(),
       weight_grams: product.weight_grams != null ? product.weight_grams.toString() : "",
       ncm: product.ncm ?? "",
+      stock_quantity: product.stock_quantity != null ? String(product.stock_quantity) : "",
       images: galleryImages(product),
       category_ids: product.category_ids ?? (product.category_id ? [product.category_id] : []),
       tags: (Array.isArray(product.tags) ? product.tags : []).join(', '),
@@ -261,6 +265,7 @@ export default function AdminProductsPage() {
       discount: "0",
       weight_grams: "",
       ncm: "",
+      stock_quantity: "",
       images: [],
       category_ids: [],
       tags: "",
@@ -464,6 +469,23 @@ export default function AdminProductsPage() {
                       />
                       <p className="text-xs text-muted-foreground">
                         Se vazio, usa o NCM padrão configurado em Configurações → Bling.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="stock_quantity">Estoque <span className="text-muted-foreground font-normal">(unidades disponíveis)</span></Label>
+                      <Input
+                        id="stock_quantity"
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="deixe vazio para não controlar"
+                        value={formData.stock_quantity}
+                        onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Vazio = venda livre, sem controle de estoque. Com um número, o checkout
+                        recusa pedidos acima do saldo e a baixa acontece quando o pagamento é aprovado.
                       </p>
                     </div>
                   </TabsContent>

@@ -26,6 +26,11 @@ const STEP_INDEX: Record<string, number> = {
   pending: 0, processing: 1, shipped: 2, delivered: 3,
 };
 
+// Janela de espera pela confirmação do webhook depois que o cliente volta do
+// Mercado Pago: 20 tentativas × 3s ≈ 1 minuto.
+const CONFIRMATION_POLL_INTERVAL_MS = 3000;
+const CONFIRMATION_POLL_ATTEMPTS    = 20;
+
 const TERMINAL: Record<string, { label: string; Icon: typeof XCircle; color: string }> = {
   failed:    { label: "Pagamento falhou", Icon: XCircle,   color: "text-red-600"    },
   refunded:  { label: "Reembolsado",      Icon: RotateCcw, color: "text-orange-600" },
@@ -85,13 +90,35 @@ function OrderStatusTracker({ status }: { status: OrderStatus }) {
 const fmt = (value?: number) =>
   value !== undefined ? `R$ ${value.toFixed(2).replace(".", ",")}` : "R$ 0,00";
 
-function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry }: {
+function PaymentBanner({ status, paymentParam, retrying, retryError, onRetry, awaitingConfirmation }: {
   status: Order["status"];
   paymentParam: string | null;
   retrying: boolean;
   retryError: string | null;
   onRetry: () => void;
+  awaitingConfirmation: boolean;
 }) {
+  // Voltou do gateway e o webhook ainda não chegou. O banner de "Pagar agora"
+  // aqui seria um convite a pagar duas vezes.
+  if (awaitingConfirmation) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4"
+      >
+        <Loader2 className="h-5 w-5 text-blue-500 shrink-0 mt-0.5 animate-spin" />
+        <div>
+          <p className="font-semibold text-blue-800 text-sm">Confirmando seu pagamento…</p>
+          <p className="text-blue-700 text-xs mt-0.5">
+            Isso costuma levar alguns segundos. Não é preciso pagar de novo — a página
+            atualiza sozinha assim que o pagamento for confirmado.
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+
   if (paymentParam === "success" && status !== "pending") {
     return (
       <motion.div
@@ -169,6 +196,7 @@ function MyOrderDetailContent() {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [confirmationTimedOut, setConfirmationTimedOut] = useState(false);
   const orderId = params?.id as string;
 
   const handleRetryPayment = async () => {
@@ -212,6 +240,39 @@ function MyOrderDetailContent() {
     };
     fetchOrder();
   }, [orderId, user, loading]);
+
+  // Quem volta do Mercado Pago chega antes do webhook: o pedido ainda está
+  // `pending` por alguns segundos. Sem esse polling a tela mostrava "Pagamento
+  // pendente — Pagar agora" para quem acabou de pagar, convidando a uma
+  // segunda cobrança. Para sozinho quando o status muda ou quando a
+  // confirmação demora mais que o esperado (aí o banner explica o que fazer).
+  useEffect(() => {
+    if (!orderId || !order || order.status !== "pending") return;
+    if (paymentParam !== "success" && paymentParam !== "pending") return;
+
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > CONFIRMATION_POLL_ATTEMPTS) {
+        clearInterval(timer);
+        setConfirmationTimedOut(true);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const fresh: Order = await res.json();
+        if (fresh.status !== "pending") {
+          setOrder(fresh);
+          clearInterval(timer);
+        }
+      } catch {
+        // Silencioso: é só uma tentativa de atualização, o intervalo continua.
+      }
+    }, CONFIRMATION_POLL_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [orderId, order, paymentParam]);
 
   if (loading || loadingOrder) {
     return (
@@ -281,6 +342,11 @@ function MyOrderDetailContent() {
             retrying={retrying}
             retryError={retryError}
             onRetry={handleRetryPayment}
+            awaitingConfirmation={
+              order.status === "pending" &&
+              (paymentParam === "success" || paymentParam === "pending") &&
+              !confirmationTimedOut
+            }
           />
 
           <div className="mb-8">
